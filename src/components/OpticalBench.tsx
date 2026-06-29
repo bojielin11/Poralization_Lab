@@ -281,48 +281,59 @@ function WavePlateVis({ x, y, r, el }: { x: number; y: number; r: number; el: { 
   );
 }
 
+function michelLevyColor(phase: number): string {
+  // Simplified Michel-Lévy interference color mapping
+  // phase in radians, normalized to 0..~12π (multiple orders)
+  const delta = ((phase % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+  const dNorm = delta / (2 * Math.PI);
+  // Map to approximate interference colors
+  const r = Math.sin(dNorm * Math.PI * 3) * 0.5 + 0.5;
+  const g = Math.sin((dNorm + 0.33) * Math.PI * 3) * 0.5 + 0.5;
+  const b = Math.sin((dNorm + 0.67) * Math.PI * 3) * 0.5 + 0.5;
+  const brightness = 0.85;
+  return `rgb(${Math.round(r * brightness * 255)},${Math.round(g * brightness * 255)},${Math.round(b * brightness * 255)})`;
+}
+
 function SampleVis({ x, y, r }: { x: number; y: number; r: number }) {
+  const stressForce = useSimulationStore(s => s.stressForce);
+
+  // Generate colored interference rings based on stress
+  const rings = useMemo(() => {
+    const count = 30;
+    const result = [];
+    for (let i = 0; i < count; i++) {
+      const t = i / (count - 1);
+      const radius = t * r * 1.1;
+      const phase = t * stressForce * 20 + stressForce * 0.5;
+      result.push({ radius, color: michelLevyColor(phase), width: r * 1.1 / count + 0.3 });
+    }
+    return result;
+  }, [stressForce, r]);
+
   return (
     <g>
-      {/* Sample body — rounded rectangle */}
       <rect x={x - r} y={y - r * 1.4} width={r * 2} height={r * 2.8} rx={7}
-        fill="rgba(255,111,97,0.12)" stroke="#ff6f61" strokeWidth={1.5} strokeOpacity={0.7} />
-      {/* Internal stress fringe pattern */}
+        fill="rgba(20,20,25,0.9)" stroke="#41525e" strokeWidth={1.5} />
       <defs>
-        <clipPath id={`sample-clip-${x.toFixed(0)}`}>
-          <rect x={x - r + 2} y={y - r * 1.4 + 2} width={r * 2 - 4} height={r * 2.8 - 4} rx={5} />
+        <clipPath id={`sclip-${x.toFixed(0)}`}>
+          <rect x={x - r + 1} y={y - r * 1.4 + 1} width={r * 2 - 2} height={r * 2.8 - 2} rx={6} />
         </clipPath>
       </defs>
-      <g clipPath={`url(#sample-clip-${x.toFixed(0)})`}>
-        {/* Concentric stress rings */}
-        {Array.from({ length: 6 }, (_, i) => {
-          const radius = 4 + i * (r * 0.9 / 6);
-          const colors = ['#ff6f61', '#fbbf52', '#4ade80', '#46cdd9', '#ff6f61', '#fbbf52'];
-          return <ellipse key={i} cx={x} cy={y} rx={r * 0.5} ry={radius * 1.1}
-            fill="none" stroke={colors[i]} strokeWidth={1.2} strokeOpacity={0.5 - i * 0.06} />;
-        })}
-        {/* Diagonal stress lines */}
-        {[-1, 1].map(sign => (
-          <line key={sign} x1={x - r} y1={y + sign * r * 1.2} x2={x + r} y2={y - sign * r * 1.2}
-            stroke="#ff6f61" strokeWidth={0.8} strokeOpacity={0.25} strokeDasharray="6 4" />
+      {/* Colored interference rings */}
+      <g clipPath={`url(#sclip-${x.toFixed(0)})`}>
+        <rect x={x - r} y={y - r * 1.4} width={r * 2} height={r * 2.8} fill="#0a0e12" />
+        {rings.map((ring, i) => (
+          <ellipse key={i} cx={x} cy={y} rx={r * 0.5} ry={ring.radius}
+            fill="none" stroke={ring.color} strokeWidth={ring.width} strokeOpacity={0.85} />
         ))}
       </g>
       {/* Force arrows */}
-      <line x1={x} y1={y - r * 1.4 - 8} x2={x} y2={y - r * 1.4 - 1} stroke="#ffb74d" strokeWidth={1.5} markerEnd="url(#arrow-down)" />
-      <line x1={x} y1={y + r * 1.4 + 8} x2={x} y2={y + r * 1.4 + 1} stroke="#ffb74d" strokeWidth={1.5} markerEnd="url(#arrow-up)" />
-      <text x={x} y={y - r * 1.4 - 12} fill="#ffb74d" fontSize={9} fontWeight={600} textAnchor="middle"
-        fontFamily="JetBrains Mono, monospace">F</text>
-      <text x={x} y={y + r * 1.4 + 21} fill="#ffb74d" fontSize={9} fontWeight={600} textAnchor="middle"
-        fontFamily="JetBrains Mono, monospace">F</text>
-      {/* Arrow markers */}
-      <defs>
-        <marker id="arrow-down" viewBox="0 0 10 10" refX={5} refY={10} markerWidth={6} markerHeight={6} orient="auto">
-          <path d="M 0 0 L 5 10 L 10 0" fill="#ffb74d" />
-        </marker>
-        <marker id="arrow-up" viewBox="0 0 10 10" refX={5} refY={0} markerWidth={6} markerHeight={6} orient="auto">
-          <path d="M 0 10 L 5 0 L 10 10" fill="#ffb74d" />
-        </marker>
-      </defs>
+      <line x1={x} y1={y - r * 1.4 - 8} x2={x} y2={y - r * 1.4 - 1} stroke="#ffb74d" strokeWidth={2} />
+      <polygon points={`${x-4},${y-r*1.4-3} ${x+4},${y-r*1.4-3} ${x},${y-r*1.4+2}`} fill="#ffb74d" />
+      <line x1={x} y1={y + r * 1.4 + 8} x2={x} y2={y + r * 1.4 + 1} stroke="#ffb74d" strokeWidth={2} />
+      <polygon points={`${x-4},${y+r*1.4+3} ${x+4},${y+r*1.4+3} ${x},${y+r*1.4-2}`} fill="#ffb74d" />
+      <text x={x} y={y - r * 1.4 - 12} fill="#ffb74d" fontSize={9} fontWeight={600} textAnchor="middle" fontFamily="JetBrains Mono">F</text>
+      <text x={x} y={y + r * 1.4 + 21} fill="#ffb74d" fontSize={9} fontWeight={600} textAnchor="middle" fontFamily="JetBrains Mono">F</text>
     </g>
   );
 }

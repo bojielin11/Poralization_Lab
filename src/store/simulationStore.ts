@@ -69,6 +69,7 @@ interface SimulationState {
   // Data collection
   dataPoints: DataPoint[];
   noiseLevel: number;
+  stressForce: number;  // Photoelastic stress (0-1)
 
   // Computed
   beamColor: string;
@@ -91,6 +92,7 @@ interface SimulationState {
   setShowJones: (v: boolean) => void;
   setShowStokes: (v: boolean) => void;
   setNoiseLevel: (v: number) => void;
+  setStressForce: (v: number) => void;
   recordDataPoint: () => void;
   clearDataPoints: () => void;
   autoCollect: () => void;
@@ -156,6 +158,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
   dataPoints: [],
   noiseLevel: 0,
+  stressForce: 0.3,
 
   beamColor: '#ffd451',
 
@@ -278,6 +281,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   setShowJones: (v) => set({ showJonesMatrix: v }),
   setShowStokes: (v) => set({ showStokesParams: v }),
   setNoiseLevel: (v) => set({ noiseLevel: v }),
+  setStressForce: (v) => set({ stressForce: v }),
 
   recordDataPoint: () => {
     const { elements, dataPoints, noiseLevel } = get();

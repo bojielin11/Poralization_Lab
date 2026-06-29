@@ -40,14 +40,13 @@ function AngleDial({ angle, onChange, label }: { angle: number; onChange: (v: nu
             );
           })}
 
-          {/* Major tick labels */}
+          {/* Major tick labels — horizontal, no rotation */}
           {[0, 45, 90, 135, 180, 225, 270, 315].map(a => (
             <text key={a}
               x={Math.cos(a * Math.PI / 180) * 47}
               y={-Math.sin(a * Math.PI / 180) * 47 + 4}
               textAnchor="middle" fill="#6c7d85" fontSize={10} fontWeight={600}
               fontFamily="JetBrains Mono, monospace"
-              transform={`rotate(${a}, ${Math.cos(a * Math.PI / 180) * 47}, ${-Math.sin(a * Math.PI / 180) * 47})`}
             >{a}°</text>
           ))}
 
@@ -290,6 +289,12 @@ export function ParameterPanel() {
           </div>
         )}
 
+        {/* Stress control for photoelastic */}
+        {selected.type === 'sample' && <StressControl />}
+
+        {/* Noise slider */}
+        <NoiseControl />
+
         {/* Display toggles */}
         <div className="pt-1">
           <span className="text-2xs font-semibold uppercase tracking-[0.1em] text-lab-text-muted px-1">可视化选项</span>
@@ -308,6 +313,42 @@ export function ParameterPanel() {
           移除此元件
         </button>
       </div>
+    </div>
+  );
+}
+
+// --- Stress control (photoelastic) ---
+function StressControl() {
+  const stressForce = useSimulationStore(s => s.stressForce);
+  const setStressForce = useSimulationStore(s => s.setStressForce);
+  return (
+    <div className="lab-control-group">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-medium text-lab-text-secondary">施加应力</span>
+        <span className="text-sm font-mono text-lab-accent-hover">{(stressForce * 100).toFixed(0)}%</span>
+      </div>
+      <input type="range" min={0} max={100} value={Math.round(stressForce * 100)}
+        onChange={e => setStressForce(Number(e.target.value) / 100)}
+        style={{ '--range-fill': `${stressForce * 100}%` } as React.CSSProperties} />
+      <div className="text-2xs text-lab-text-muted mt-1">调节应力大小，观察彩色干涉条纹 | Δn = C·(σ₁−σ₂)</div>
+    </div>
+  );
+}
+
+// --- Noise control ---
+function NoiseControl() {
+  const noiseLevel = useSimulationStore(s => s.noiseLevel);
+  const setNoiseLevel = useSimulationStore(s => s.setNoiseLevel);
+  return (
+    <div className="lab-control-group">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-medium text-lab-text-secondary">测量噪声</span>
+        <span className="text-sm font-mono text-lab-accent-hover">{(noiseLevel * 100).toFixed(0)}%</span>
+      </div>
+      <input type="range" min={0} max={15} value={Math.round(noiseLevel * 100)}
+        onChange={e => setNoiseLevel(Number(e.target.value) / 100)}
+        style={{ '--range-fill': `${(noiseLevel / 0.15) * 100}%` } as React.CSSProperties} />
+      <div className="text-2xs text-lab-text-muted mt-1">模拟真实实验中的角度读数误差和探测器噪声</div>
     </div>
   );
 }
