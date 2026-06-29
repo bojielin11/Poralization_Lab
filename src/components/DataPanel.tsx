@@ -51,38 +51,66 @@ function MalusCurve() {
 }
 
 // ============================================================
-// Polar Plot — shows data points on polar coordinates
+// Polar Plot — proper polar coordinate grid with data points
 // ============================================================
 function PolarPlot() {
   const dataPoints = useSimulationStore(s => s.dataPoints);
   const elements = useSimulationStore(s => s.elements);
   const analyzer = elements.find(el => el.type === 'analyzer');
   const currentAngle = analyzer?.angle ?? 0;
+  const SIZE = 260; const CX = SIZE / 2; const CY = SIZE / 2; const R = SIZE / 2 - 30;
 
-  // Build combined data array: theory curve + data point slots
-  const combinedData = useMemo(() => Array.from({ length: 361 }, (_, i) => {
-    const dp = dataPoints.find(p => p.angle === i);
-    return {
-      angle: i,
-      theory: Math.cos((i - currentAngle) * Math.PI / 180) ** 2,
-      measured: dp ? dp.intensity : null,
-    };
-  }), [dataPoints, currentAngle]);
+  // Angle labels
+  const angleLabels = [0, 30, 45, 60, 90, 120, 135, 150, 180, 210, 225, 240, 270, 300, 315, 330];
+  // Radial grid levels
+  const gridLevels = [0.2, 0.4, 0.6, 0.8, 1.0];
 
   return (
-    <div style={{ width: '100%', height: '100%' }}>
-      <ResponsiveContainer>
-        <RadarChart data={combinedData} cx="50%" cy="50%" outerRadius="80%" startAngle={-90} endAngle={270}>
-          <PolarGrid stroke="rgba(255,255,255,0.08)" />
-          <PolarAngleAxis dataKey="angle" tick={false} />
-          <PolarRadiusAxis angle={90} domain={[0, 1]} tick={false} axisLine={false} />
-          {/* Theory curve */}
-          <Radar dataKey="theory" stroke="#46cdd9" strokeWidth={1.5} fill="#46cdd9" fillOpacity={0.06} dot={false} />
-          {/* Data points — amber dots at recorded positions */}
-          <Radar dataKey="measured" stroke="none" fill="none"
-            dot={dataPoints.length > 0 ? { r: 5, fill: '#ffb74d', fillOpacity: 1, stroke: '#4a3520', strokeWidth: 1.5 } : false} />
-        </RadarChart>
-      </ResponsiveContainer>
+    <div className="flex items-center justify-center h-full">
+      <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
+        {/* Concentric grid circles */}
+        {gridLevels.map(lvl => (
+          <circle key={lvl} cx={CX} cy={CY} r={R * lvl}
+            fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={0.8} />
+        ))}
+        {/* Radial grid lines */}
+        {[0, 30, 45, 60, 90, 120, 135, 150].map(a => {
+          const rad = (a - 90) * Math.PI / 180;
+          return <line key={a} x1={CX} y1={CY}
+            x2={CX + Math.cos(rad) * R} y2={CY + Math.sin(rad) * R}
+            stroke="rgba(255,255,255,0.06)" strokeWidth={0.5} />;
+        })}
+        {/* Axis labels */}
+        {angleLabels.map(a => {
+          const rad = (a - 90) * Math.PI / 180;
+          const lx = CX + Math.cos(rad) * (R + 16);
+          const ly = CY + Math.sin(rad) * (R + 16);
+          return <text key={a} x={lx} y={ly} textAnchor="middle" dominantBaseline="central"
+            fill="#6c7d85" fontSize={9} fontFamily="JetBrains Mono, monospace">{a}°</text>;
+        })}
+        {/* Radial value labels */}
+        {gridLevels.slice(1).map(lvl => (
+          <text key={'v'+lvl} x={CX + 5} y={CY - R * lvl + 3}
+            fill="rgba(255,255,255,0.15)" fontSize={8} fontFamily="JetBrains Mono">{lvl.toFixed(1)}</text>
+        ))}
+        {/* Data points — amber dots */}
+        {dataPoints.map((dp, i) => {
+          const rad = (dp.angle - 90) * Math.PI / 180;
+          const px = CX + Math.cos(rad) * dp.intensity * R;
+          const py = CY + Math.sin(rad) * dp.intensity * R;
+          return <g key={i}>
+            <circle cx={px} cy={py} r={4.5} fill="#ffb74d" stroke="#4a3520" strokeWidth={1} />
+            <title>{dp.angle}°: {dp.intensity.toFixed(3)} I/I₀</title>
+          </g>;
+        })}
+        {/* Current analyzer angle indicator */}
+        <line x1={CX} y1={CY}
+          x2={CX + Math.cos((currentAngle - 90) * Math.PI / 180) * R}
+          y2={CY + Math.sin((currentAngle - 90) * Math.PI / 180) * R}
+          stroke="rgba(255,255,255,0.25)" strokeWidth={1} strokeDasharray="3 2" />
+        {/* Center dot */}
+        <circle cx={CX} cy={CY} r={2.5} fill="#46cdd9" />
+      </svg>
     </div>
   );
 }

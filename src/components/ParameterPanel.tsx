@@ -50,13 +50,13 @@ function AngleDial({ angle, onChange, label }: { angle: number; onChange: (v: nu
             >{a}°</text>
           ))}
 
-          {/* Angle indicator line */}
+          {/* Angle indicator line — rotates around center (0,0) */}
           <motion.line
             x1={0} y1={0}
             x2={0} y2={-58}
             animate={{ rotate: angle }}
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-            style={{ originX: '0px', originY: '0px' }}
+            style={{ transformOrigin: '0px 0px' }}
             stroke="#ffb74d" strokeWidth={2.5} strokeLinecap="round"
           />
 
