@@ -1,11 +1,8 @@
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useSimulationStore } from '../store/simulationStore';
 import { malusIntensity, degToRad, angleBetween } from '../physics/core';
 
-// ============================================================
-// SVG-based Optical Bench Visualization
-// ============================================================
 function useSimulationResults() {
   const elements = useSimulationStore(s => s.elements);
   const analyzer = elements.find(el => el.type === 'analyzer');
@@ -22,13 +19,47 @@ export function OpticalBench() {
   const selectedElementId = useSimulationStore(s => s.selectedElementId);
   const selectElement = useSimulationStore(s => s.selectElement);
   const removeElement = useSimulationStore(s => s.removeElement);
+  const updateElement = useSimulationStore(s => s.updateElement);
   const showEfield = useSimulationStore(s => s.showEfieldVectors);
   const showEllipse = useSimulationStore(s => s.showPolarizationEllipse);
   const { intensity, analyzerAngle } = useSimulationResults();
-  const isGuided = useSimulationStore(s => s.mode === 'guided');
 
   const W = 900; const H = 420;
   const benchY = H * 0.55;
+
+  // --- Drag state ---
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const dragStartX = useRef(0);
+  const dragStartPos = useRef(0);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent, elId: string, currentPos: number) => {
+    // Don't drag if clicking delete button area
+    if ((e.target as SVGElement).closest('.del-btn')) return;
+    e.stopPropagation();
+    setDraggingId(elId);
+    dragStartX.current = e.clientX;
+    dragStartPos.current = currentPos;
+    selectElement(elId);
+  }, [selectElement]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!draggingId || !svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const dx = (e.clientX - dragStartX.current) / rect.width;
+    const newPos = Math.max(0.03, Math.min(0.95, dragStartPos.current + dx));
+    updateElement(draggingId, { position: Math.round(newPos * 1000) / 1000 });
+  }, [draggingId, updateElement]);
+
+  const handleMouseUp = useCallback(() => {
+    setDraggingId(null);
+  }, []);
+
+  useEffect(() => {
+    if (!draggingId) return;
+    const handleUp = () => setDraggingId(null);
+    window.addEventListener('mouseup', handleUp);
+    return () => window.removeEventListener('mouseup', handleUp);
+  }, [draggingId]);
 
   const beamSegments = useMemo(() => {
     const sorted = [...elements].sort((a, b) => a.position - b.position);
@@ -45,7 +76,6 @@ export function OpticalBench() {
     return segments;
   }, [elements]);
 
-  // Collect all polarizers to pre-generate defs
   const polarizerElements = elements.filter(el => el.type === 'polarizer' || el.type === 'analyzer');
 
   return (
@@ -54,6 +84,7 @@ export function OpticalBench() {
         style={{ background: 'rgba(20, 28, 35, 0.7)' }}
       >
         <span className="text-xs font-semibold uppercase tracking-[0.1em] text-lab-text-muted">光路示意</span>
+        <span className="text-2xs text-lab-text-muted ml-2">拖拽元件调整位置</span>
         <div className="flex-1" />
         <span className="text-2xs text-lab-text-muted">透射光强</span>
         <span className="text-sm font-bold font-mono text-lab-accent-hover">{intensity.toFixed(3)}</span>
@@ -71,10 +102,15 @@ export function OpticalBench() {
         style={{ backgroundSize: '24px 24px', backgroundColor: '#0a0e12',
           backgroundImage: 'linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)'
         }}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
       >
-        <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+        <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full h-full"
+          preserveAspectRatio="xMidYMid meet"
+          style={{ cursor: draggingId ? 'grabbing' : undefined }}
+        >
           <defs>
-            <style>{'.elem-g:hover .del-btn{opacity:1!important}'}</style>
+            <style>{'.elem-g:hover .del-btn{opacity:1!important} .elem-g{cursor:grab} .elem-g:active{cursor:grabbing}'}</style>
             <filter id="laser-blur"><feGaussianBlur stdDeviation="4" /></filter>
             <filter id="beam-glow"><feGaussianBlur stdDeviation="8" /></filter>
             <filter id="selected-glow"><feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#ffb74d" floodOpacity="0.5" /></filter>
@@ -113,7 +149,7 @@ export function OpticalBench() {
             </g>
           ))}
 
-          {/* Optical elements */}
+          {/* Elements */}
           {elements.map(el => {
             const x = el.position * W;
             const y = benchY;
@@ -122,15 +158,17 @@ export function OpticalBench() {
 
             return (
               <g key={el.id} className="elem-g"
-                onClick={() => selectElement(isSelected ? null : el.id)} style={{ cursor: 'pointer' }}>
+                onMouseDown={(e) => handleMouseDown(e, el.id, el.position)}
+                style={{ cursor: draggingId === el.id ? 'grabbing' : 'grab' }}
+              >
                 {el.type === 'laser' && <LaserVis x={x} y={y} r={14} />}
 
                 {(el.type === 'polarizer' || el.type === 'analyzer') && (
                   <PolarizerVis el={el} x={x} y={y} r={R} isSelected={isSelected} />
                 )}
 
-                {(el.type === 'half-wave-plate' || el.type === 'quarter-wave-plate') && (
-                  <WavePlateVis x={x} y={y} r={R * 0.85} type={el.type} angle={el.angle} />
+                {el.type === 'waveplate' && (
+                  <WavePlateVis x={x} y={y} r={R * 0.85} el={el} />
                 )}
 
                 {el.type === 'detector' && <DetectorVis x={x} y={y} intensity={intensity} />}
@@ -141,7 +179,8 @@ export function OpticalBench() {
                 )}
 
                 <LabelPill x={x} y={y} el={el} />
-                {/* Delete button — show on hover */}
+
+                {/* Delete button */}
                 <g className="del-btn" opacity={0}
                   onClick={(e: any) => { e.stopPropagation(); removeElement(el.id); }}
                   style={{ cursor: 'pointer' }}
@@ -164,7 +203,7 @@ export function OpticalBench() {
   );
 }
 
-// ===== Drawing Components (React sub-components for clean SVG) =====
+// ===== Drawing Components =====
 
 function LaserVis({ x, y, r }: { x: number; y: number; r: number }) {
   return (
@@ -219,12 +258,11 @@ function PolarizerVis({ el, x, y, r, isSelected }: {
   );
 }
 
-function WavePlateVis({ x, y, r, type, angle }: {
-  x: number; y: number; r: number; type: string; angle: number;
-}) {
-  const ang = degToRad(angle);
+function WavePlateVis({ x, y, r, el }: { x: number; y: number; r: number; el: { angle: number; waveplateType?: string } }) {
+  const ang = degToRad(el.angle);
   const dx = Math.cos(ang); const dy = -Math.sin(ang);
-  const color = type === 'half-wave-plate' ? '#4ade80' : '#fbbf52';
+  const wType = el.waveplateType || 'qwp';
+  const color = wType === 'hwp' ? '#4ade80' : wType === 'fwp' ? '#60a5fa' : '#fbbf52';
   return (
     <g>
       <rect x={x - r} y={y - r * 1.5} width={r * 2} height={r * 3} rx={8}
@@ -284,12 +322,12 @@ function EfieldIndicator({ x, y, angle, intensity, isAnalyzer }: {
   );
 }
 
-function LabelPill({ x, y, el }: { x: number; y: number; el: { label: string; angle: number; type: string } }) {
+function LabelPill({ x, y, el }: { x: number; y: number; el: { label: string; angle: number; type: string; waveplateType?: string } }) {
   const lines = el.label.split('\n');
-  const showAngle = el.type === 'analyzer' || el.type === 'polarizer' || el.type === 'half-wave-plate' || el.type === 'quarter-wave-plate';
+  const showAngle = el.type === 'analyzer' || el.type === 'polarizer' || el.type === 'waveplate';
   const top = y + 38;
   const isAnalyzer = el.type === 'analyzer';
-  const textColor = isAnalyzer ? '#ffb74d' : '#7ee0e8';
+  const textColor = isAnalyzer ? '#ffb74d' : el.type === 'waveplate' ? (el.waveplateType === 'hwp' ? '#4ade80' : '#fbbf52') : '#7ee0e8';
   return (
     <g>
       <rect x={x - 45} y={top} width={90} height={showAngle ? 38 : 22} rx={6}

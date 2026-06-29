@@ -185,8 +185,7 @@ export function ParameterPanel() {
         <div className="h-px bg-lab-border" />
 
         {/* Type-specific parameters */}
-        {(selected.type === 'analyzer' || selected.type === 'polarizer' ||
-          selected.type === 'half-wave-plate' || selected.type === 'quarter-wave-plate') && (
+        {(selected.type === 'analyzer' || selected.type === 'polarizer' || selected.type === 'waveplate') && (
           <AngleDial
             label={selected.type === 'analyzer' ? '检偏器角度' : selected.type === 'polarizer' ? '起偏器角度' : '快轴角度'}
             angle={selected.angle}
@@ -227,18 +226,20 @@ export function ParameterPanel() {
         )}
 
         {/* Phase retardation for wave plates */}
-        {(selected.type === 'half-wave-plate' || selected.type === 'quarter-wave-plate') && (
+        {selected.type === 'waveplate' && (
           <div className="lab-control-group">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-lab-text-secondary">相位延迟 δ</span>
               <span className="text-sm font-mono text-lab-accent-hover">
-                {selected.type === 'half-wave-plate' ? 'π rad' : 'π/2 rad'}
+                {selected.waveplateType === 'hwp' ? 'π rad' : selected.waveplateType === 'fwp' ? '2π rad' : 'π/2 rad'}
               </span>
             </div>
             <div className="text-2xs text-lab-text-muted leading-relaxed">
-              {selected.type === 'half-wave-plate'
-                ? '半波片引入 π 弧度（180°）的相位延迟，可用于旋转线偏振光的偏振方向，旋转角度 = 2 × 快轴与入射偏振方向的夹角。'
-                : '四分之一波片引入 π/2 弧度（90°）的相位延迟。当线偏振光以 45° 入射时，出射光为圆偏振光。'
+              {selected.waveplateType === 'hwp'
+                ? '半波片 λ/2 — 引入 π（180°）相位延迟，可旋转线偏振光偏振方向，旋转角度 = 2 × 快轴夹角。'
+                : selected.waveplateType === 'fwp'
+                ? '全波片 λ — 引入 2π（360°）相位延迟，出射光偏振态与入射光相同。'
+                : '四分之一波片 λ/4 — 引入 π/2（90°）相位延迟。线偏振光以 45° 入射时产生圆偏振光。'
               }
             </div>
           </div>

@@ -75,7 +75,7 @@ interface SimulationState {
 
   // --- Actions ---
   setActiveExperiment: (id: string | null) => void;
-  addElement: (type: OpticalElement['type']) => void;
+  addElement: (type: OpticalElement['type'], extra?: Partial<OpticalElement>) => void;
   removeElement: (id: string) => void;
   updateElement: (id: string, updates: Partial<OpticalElement>) => void;
   selectElement: (id: string | null) => void;
@@ -156,27 +156,35 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     });
   },
 
-  addElement: (type) => {
+  addElement: (type, extra) => {
     const state = get();
     const labels: Record<string, string> = {
       laser: '激光器',
       polarizer: '偏振片',
       analyzer: '检偏器',
-      'half-wave-plate': '半波片\nλ/2',
-      'quarter-wave-plate': '四分之一波片\nλ/4',
+      waveplate: '波片',
       prism: '三棱镜',
       detector: '光强探测器',
     };
     const id = `el-${state.nextElementId}`;
     const pos = 0.2 + (state.elements.length - 1) * 0.15;
+    // Waveplate defaults
+    let waveplateType = extra?.waveplateType ?? 'qwp';
+    let phaseRet: number | undefined = undefined;
+    if (type === 'waveplate') {
+      phaseRet = extra?.phaseRetardation ?? Math.PI / 2;
+      const wlLabels: Record<string, string> = { qwp: 'λ/4 波片', hwp: 'λ/2 波片', fwp: 'λ 波片' };
+      labels.waveplate = wlLabels[waveplateType] || '波片';
+    }
     set({
       elements: [...state.elements, {
         id,
         type,
         label: labels[type] || type,
         position: Math.min(0.85, pos),
-        angle: 0,
-        phaseRetardation: type === 'half-wave-plate' ? Math.PI : type === 'quarter-wave-plate' ? Math.PI / 2 : undefined,
+        angle: extra?.angle ?? 0,
+        phaseRetardation: type === 'waveplate' ? phaseRet : undefined,
+        waveplateType: type === 'waveplate' ? waveplateType : undefined,
         refractiveIndex: type === 'prism' ? 1.5 : undefined,
         transmittance: 1,
       }],

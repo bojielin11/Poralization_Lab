@@ -2,15 +2,18 @@
 // Type definitions for the Optical Polarization Simulation
 // ============================================================
 
-export type OpticalElementType = 'laser' | 'polarizer' | 'analyzer' | 'half-wave-plate' | 'quarter-wave-plate' | 'prism' | 'detector';
+export type OpticalElementType = 'laser' | 'polarizer' | 'analyzer' | 'waveplate' | 'prism' | 'detector';
+
+export type WaveplateType = 'qwp' | 'hwp' | 'fwp'; // quarter, half, full
 
 export interface OpticalElement {
   id: string;
   type: OpticalElementType;
   label: string;
-  position: number;     // Normalized position along the optical bench (0..1)
-  angle: number;         // Rotation angle in degrees
-  phaseRetardation?: number; // For wave plates (π for HWP, π/2 for QWP)
+  position: number;        // Normalized position along optical bench (0..1)
+  angle: number;            // Rotation angle in degrees
+  phaseRetardation?: number; // For wave plates (π/2, π, 2π)
+  waveplateType?: WaveplateType; // 'qwp' | 'hwp' | 'fwp'
   refractiveIndex?: number;  // For prism
   incidentAngle?: number;    // For prism
   transmittance?: number;    // 0..1
@@ -50,6 +53,6 @@ export interface JonesVector {
 export interface PolarizationState {
   Ex: number;
   Ey: number;
-  phaseDiff: number;  // radians
+  phaseDiff: number;
   intensity: number;
 }
