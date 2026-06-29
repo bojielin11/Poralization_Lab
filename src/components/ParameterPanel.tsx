@@ -298,16 +298,14 @@ export function ParameterPanel() {
           </div>
         </div>
 
-        {/* Remove element */}
-        {selected.type !== 'laser' && selected.type !== 'detector' && (
-          <button
-            onClick={() => removeElement(selected.id)}
-            className="w-full py-2 text-sm text-lab-danger border border-lab-danger/30 rounded-lg
-              hover:bg-lab-danger/10 transition-colors"
-          >
-            移除此元件
-          </button>
-        )}
+        {/* Remove element — always visible */}
+        <button
+          onClick={() => removeElement(selected.id)}
+          className="w-full py-2 text-sm text-lab-danger border border-lab-danger/30 rounded-lg
+            hover:bg-lab-danger/10 transition-colors"
+        >
+          移除此元件
+        </button>
       </div>
     </div>
   );

@@ -22,18 +22,20 @@ class ErrorBoundary extends Component<{ name: string; children: React.ReactNode 
 }
 
 function ExperimentView() {
-  const { mode, guidedExperiment } = useSimulationStore();
+  const mode = useSimulationStore(s => s.mode);
+  const guidedExperiment = useSimulationStore(s => s.guidedExperiment);
   return (
     <div className="flex-1 flex overflow-hidden min-h-0">
       <aside className="w-[280px] flex-shrink-0 border-r border-lab-border hidden lg:flex flex-col">
         <ErrorBoundary name="ComponentLibrary"><ComponentLibrary /></ErrorBoundary>
       </aside>
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {mode === 'guided' && guidedExperiment && (
-          <ErrorBoundary name="ExperimentGuide"><ExperimentGuide /></ErrorBoundary>
-        )}
-        <div className="flex-1 min-h-0">
+      {/* Optical bench — guide overlays on top via absolute positioning */}
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+        <div className="flex-1 min-h-0 relative">
           <ErrorBoundary name="OpticalBench"><OpticalBench /></ErrorBoundary>
+          {mode === 'guided' && guidedExperiment && (
+            <ErrorBoundary name="ExperimentGuide"><ExperimentGuide /></ErrorBoundary>
+          )}
         </div>
       </main>
       <aside className="w-[320px] flex-shrink-0 border-l border-lab-border hidden xl:flex flex-col">

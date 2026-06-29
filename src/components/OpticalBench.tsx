@@ -21,9 +21,11 @@ export function OpticalBench() {
   const elements = useSimulationStore(s => s.elements);
   const selectedElementId = useSimulationStore(s => s.selectedElementId);
   const selectElement = useSimulationStore(s => s.selectElement);
+  const removeElement = useSimulationStore(s => s.removeElement);
   const showEfield = useSimulationStore(s => s.showEfieldVectors);
   const showEllipse = useSimulationStore(s => s.showPolarizationEllipse);
   const { intensity, analyzerAngle } = useSimulationResults();
+  const isGuided = useSimulationStore(s => s.mode === 'guided');
 
   const W = 900; const H = 420;
   const benchY = H * 0.55;
@@ -72,6 +74,7 @@ export function OpticalBench() {
       >
         <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
           <defs>
+            <style>{'.elem-g:hover .del-btn{opacity:1!important}'}</style>
             <filter id="laser-blur"><feGaussianBlur stdDeviation="4" /></filter>
             <filter id="beam-glow"><feGaussianBlur stdDeviation="8" /></filter>
             <filter id="selected-glow"><feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#ffb74d" floodOpacity="0.5" /></filter>
@@ -118,7 +121,8 @@ export function OpticalBench() {
             const R = 24;
 
             return (
-              <g key={el.id} onClick={() => selectElement(isSelected ? null : el.id)} style={{ cursor: 'pointer' }}>
+              <g key={el.id} className="elem-g"
+                onClick={() => selectElement(isSelected ? null : el.id)} style={{ cursor: 'pointer' }}>
                 {el.type === 'laser' && <LaserVis x={x} y={y} r={14} />}
 
                 {(el.type === 'polarizer' || el.type === 'analyzer') && (
@@ -137,6 +141,16 @@ export function OpticalBench() {
                 )}
 
                 <LabelPill x={x} y={y} el={el} />
+                {/* Delete button — show on hover */}
+                <g className="del-btn" opacity={0}
+                  onClick={(e: any) => { e.stopPropagation(); removeElement(el.id); }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <circle cx={x + R + 12} cy={y - R - 6} r={9} fill="#ff6f6120" stroke="#ff6f61" strokeWidth={1.2} />
+                  <line x1={x + R + 7} y1={y - R - 11} x2={x + R + 17} y2={y - R - 1} stroke="#ff6f61" strokeWidth={1.5} strokeLinecap="round" />
+                  <line x1={x + R + 17} y1={y - R - 11} x2={x + R + 7} y2={y - R - 1} stroke="#ff6f61" strokeWidth={1.5} strokeLinecap="round" />
+                  <title>删除元件</title>
+                </g>
               </g>
             );
           })}

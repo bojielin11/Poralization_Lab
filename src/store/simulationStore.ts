@@ -28,6 +28,12 @@ export const GUIDED_STEPS: Record<string, GuidedStep[]> = {
     { id: 3, title: '观察偏振椭圆', instruction: '调整 QWP 角度到其他值（如 30°），出射光变为椭圆偏振光。开启"显示偏振椭圆"开关，观察主画布中的椭圆形态变化。', targetAngle: 30 },
     { id: 4, title: '半波片实验', instruction: '将 QWP 替换为半波片（HWP，相位延迟 π）。HWP 会旋转线偏振光的偏振方向，旋转角度为 2 倍快轴与入射偏振方向的夹角。', targetAngle: undefined },
   ],
+  'photoelastic': [
+    { id: 1, title: '认识光弹效应', instruction: '光弹效应（应力双折射）：透明材料在应力作用下，折射率发生变化，产生双折射现象。Δn = C · (σ₁ − σ₂)，其中 C 为应力光学系数。', targetAngle: undefined },
+    { id: 2, title: '正交偏振片观测', instruction: '将样品置于正交偏振片（起偏器⊥检偏器）之间。无应力时视场全暗；施加应力后，出现明暗相间的干涉条纹。', targetAngle: 90 },
+    { id: 3, title: '观察应力条纹', instruction: '调整应力大小，观察干涉条纹的分布变化。应力越大，条纹越密。条纹颜色与相位差 δ = 2π·Δn·d/λ 相关。', targetAngle: undefined },
+    { id: 4, title: '分析应力分布', instruction: '在白光照射下，不同波长在不同相位差处相长/相消，产生彩色干涉图案（Michel-Lévy 色标）。根据颜色可以推算应力大小。', targetAngle: undefined },
+  ],
 };
 
 // ============================================================
@@ -132,7 +138,23 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   beamColor: '#ffd451',
 
   // --- Actions ---
-  setActiveExperiment: (id) => set({ activeExperiment: id }),
+  setActiveExperiment: (id) => {
+    // Map experiment card ID to guided experiment type
+    const guideMap: Record<string, GuidedExperiment> = {
+      'exp-linear': 'linear-polarization',
+      'exp-malus': 'malus-law',
+      'exp-waveplate': 'waveplate',
+      'exp-photoelastic': null,
+    };
+    const guidedExp = id ? (guideMap[id] ?? null) : null;
+    // Auto-enter guided mode when opening an experiment
+    set({
+      activeExperiment: id,
+      guidedExperiment: guidedExp,
+      guidedStep: 0,
+      mode: id ? 'guided' : 'free',
+    });
+  },
 
   addElement: (type) => {
     const state = get();
