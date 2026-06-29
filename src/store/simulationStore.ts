@@ -98,22 +98,44 @@ interface SimulationState {
 }
 
 // ============================================================
-// Default elements for Malus's law experiment
+// Per-experiment default element configurations
 // ============================================================
 
-const defaultElements: OpticalElement[] = [
-  { id: 'el-1', type: 'laser', label: '激光器\n632.8nm', position: 0.08, angle: 0 },
-  { id: 'el-2', type: 'polarizer', label: '起偏器 P', position: 0.28, angle: 0 },
-  { id: 'el-3', type: 'analyzer', label: '检偏器 A', position: 0.62, angle: 0 },
-  { id: 'el-4', type: 'detector', label: '光强探测器', position: 0.88, angle: 0 },
-];
+const EXPERIMENT_DEFAULTS: Record<string, OpticalElement[]> = {
+  'exp-linear': [
+    { id: 'el-1', type: 'laser', label: '激光器\n632.8nm', position: 0.08, angle: 0 },
+    { id: 'el-2', type: 'polarizer', label: '起偏器 P', position: 0.26, angle: 0 },
+    { id: 'el-3', type: 'analyzer', label: '检偏器 A', position: 0.60, angle: 45 },
+    { id: 'el-4', type: 'detector', label: '光强探测器', position: 0.86, angle: 0 },
+  ],
+  'exp-malus': [
+    { id: 'el-1', type: 'laser', label: '激光器\n632.8nm', position: 0.08, angle: 0 },
+    { id: 'el-2', type: 'polarizer', label: '起偏器 P', position: 0.26, angle: 0 },
+    { id: 'el-3', type: 'analyzer', label: '检偏器 A', position: 0.60, angle: 0 },
+    { id: 'el-4', type: 'detector', label: '光强探测器', position: 0.86, angle: 0 },
+  ],
+  'exp-waveplate': [
+    { id: 'el-1', type: 'laser', label: '激光器\n632.8nm', position: 0.06, angle: 0 },
+    { id: 'el-2', type: 'polarizer', label: '起偏器 P', position: 0.22, angle: 0 },
+    { id: 'el-3', type: 'waveplate', label: 'λ/4 波片', position: 0.42, angle: 45, phaseRetardation: Math.PI / 2, waveplateType: 'qwp' },
+    { id: 'el-4', type: 'analyzer', label: '检偏器 A', position: 0.66, angle: 0 },
+    { id: 'el-5', type: 'detector', label: '光强探测器', position: 0.88, angle: 0 },
+  ],
+  'exp-photoelastic': [
+    { id: 'el-1', type: 'laser', label: '激光器\n白光', position: 0.06, angle: 0 },
+    { id: 'el-2', type: 'polarizer', label: '起偏器 P', position: 0.22, angle: 0 },
+    { id: 'el-3', type: 'sample', label: '应力样品', position: 0.42, angle: 0 },
+    { id: 'el-4', type: 'analyzer', label: '检偏器 A', position: 0.66, angle: 90 },
+    { id: 'el-5', type: 'detector', label: '光强探测器', position: 0.88, angle: 0 },
+  ],
+};
 
 // ============================================================
 // Store
 // ============================================================
 
 export const useSimulationStore = create<SimulationState>((set, get) => ({
-  elements: defaultElements,
+  elements: EXPERIMENT_DEFAULTS['exp-malus'],
   selectedElementId: 'el-3',
   nextElementId: 5,
   sourceIntensity: 1.0,
@@ -139,20 +161,25 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
   // --- Actions ---
   setActiveExperiment: (id) => {
-    // Map experiment card ID to guided experiment type
     const guideMap: Record<string, GuidedExperiment> = {
       'exp-linear': 'linear-polarization',
       'exp-malus': 'malus-law',
       'exp-waveplate': 'waveplate',
-      'exp-photoelastic': null,
+      'exp-photoelastic': 'photoelastic',
     };
     const guidedExp = id ? (guideMap[id] ?? null) : null;
-    // Auto-enter guided mode when opening an experiment
+    // Load experiment-specific default elements
+    const defaultEls = id ? (EXPERIMENT_DEFAULTS[id] || EXPERIMENT_DEFAULTS['exp-malus']) : EXPERIMENT_DEFAULTS['exp-malus'];
     set({
       activeExperiment: id,
+      elements: [...defaultEls.map(el => ({ ...el }))],
+      selectedElementId: defaultEls[2]?.id || null,
+      nextElementId: Math.max(...defaultEls.map(el => parseInt(el.id.split('-')[1]))) + 1,
       guidedExperiment: guidedExp,
       guidedStep: 0,
       mode: id ? 'guided' : 'free',
+      dataPoints: [],
+      bottomPanelOpen: true,
     });
   },
 
@@ -164,6 +191,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       analyzer: '检偏器',
       waveplate: '波片',
       prism: '三棱镜',
+      sample: '应力样品',
       detector: '光强探测器',
     };
     const id = `el-${state.nextElementId}`;
@@ -293,11 +321,15 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     set({ dataPoints: points });
   },
 
-  resetAll: () => set({
-    elements: defaultElements.map(el => ({ ...el })),
-    selectedElementId: 'el-3',
-    dataPoints: [],
-    noiseLevel: 0,
-    bottomPanelOpen: true,
-  }),
+  resetAll: () => {
+    const state = get();
+    const defaults = EXPERIMENT_DEFAULTS[state.activeExperiment || 'exp-malus'] || EXPERIMENT_DEFAULTS['exp-malus'];
+    set({
+      elements: defaults.map(el => ({ ...el })),
+      selectedElementId: defaults[2]?.id || null,
+      dataPoints: [],
+      noiseLevel: 0,
+      bottomPanelOpen: true,
+    });
+  },
 }));

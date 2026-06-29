@@ -2,7 +2,7 @@
 // Type definitions for the Optical Polarization Simulation
 // ============================================================
 
-export type OpticalElementType = 'laser' | 'polarizer' | 'analyzer' | 'waveplate' | 'prism' | 'detector';
+export type OpticalElementType = 'laser' | 'polarizer' | 'analyzer' | 'waveplate' | 'prism' | 'sample' | 'detector';
 
 export type WaveplateType = 'qwp' | 'hwp' | 'fwp'; // quarter, half, full
 

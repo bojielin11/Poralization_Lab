@@ -110,7 +110,7 @@ export function OpticalBench() {
           style={{ cursor: draggingId ? 'grabbing' : undefined }}
         >
           <defs>
-            <style>{'.elem-g:hover .del-btn{opacity:1!important} .elem-g{cursor:grab} .elem-g:active{cursor:grabbing}'}</style>
+            <style>{'.elem-g{cursor:grab} .elem-g:active{cursor:grabbing}'}</style>
             <filter id="laser-blur"><feGaussianBlur stdDeviation="4" /></filter>
             <filter id="beam-glow"><feGaussianBlur stdDeviation="8" /></filter>
             <filter id="selected-glow"><feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#ffb74d" floodOpacity="0.5" /></filter>
@@ -171,6 +171,7 @@ export function OpticalBench() {
                   <WavePlateVis x={x} y={y} r={R * 0.85} el={el} />
                 )}
 
+                {el.type === 'sample' && <SampleVis x={x} y={y} r={R * 0.9} />}
                 {el.type === 'detector' && <DetectorVis x={x} y={y} intensity={intensity} />}
 
                 {showEfield && (el.type === 'polarizer' || el.type === 'analyzer') && (
@@ -180,15 +181,14 @@ export function OpticalBench() {
 
                 <LabelPill x={x} y={y} el={el} />
 
-                {/* Delete button */}
-                <g className="del-btn" opacity={0}
-                  onClick={(e: any) => { e.stopPropagation(); removeElement(el.id); }}
+                {/* Delete button — large × on label pill, always clickable */}
+                <g onClick={(e: any) => { e.stopPropagation(); removeElement(el.id); }}
                   style={{ cursor: 'pointer' }}
                 >
-                  <circle cx={x + R + 12} cy={y - R - 6} r={9} fill="#ff6f6120" stroke="#ff6f61" strokeWidth={1.2} />
-                  <line x1={x + R + 7} y1={y - R - 11} x2={x + R + 17} y2={y - R - 1} stroke="#ff6f61" strokeWidth={1.5} strokeLinecap="round" />
-                  <line x1={x + R + 17} y1={y - R - 11} x2={x + R + 7} y2={y - R - 1} stroke="#ff6f61" strokeWidth={1.5} strokeLinecap="round" />
-                  <title>删除元件</title>
+                  <circle cx={x + 35} cy={y + 48} r={12} fill="rgba(255,111,97,0.18)" stroke="#ff6f61" strokeWidth={1.8} />
+                  <line x1={x + 30} y1={y + 43} x2={x + 40} y2={y + 53} stroke="#ff6f61" strokeWidth={2.2} strokeLinecap="round" />
+                  <line x1={x + 40} y1={y + 43} x2={x + 30} y2={y + 53} stroke="#ff6f61" strokeWidth={2.2} strokeLinecap="round" />
+                  <title>点击删除</title>
                 </g>
               </g>
             );
@@ -277,6 +277,52 @@ function WavePlateVis({ x, y, r, el }: { x: number; y: number; r: number; el: { 
         fontFamily="JetBrains Mono, monospace" textAnchor="middle" dominantBaseline="central">F</text>
       <text x={x - dy * (r + 8)} y={y + dx * (r + 8)} fill={color} fontSize={9} fontWeight={500}
         fontFamily="JetBrains Mono, monospace" textAnchor="middle" dominantBaseline="central" opacity={0.5}>S</text>
+    </g>
+  );
+}
+
+function SampleVis({ x, y, r }: { x: number; y: number; r: number }) {
+  return (
+    <g>
+      {/* Sample body — rounded rectangle */}
+      <rect x={x - r} y={y - r * 1.4} width={r * 2} height={r * 2.8} rx={7}
+        fill="rgba(255,111,97,0.12)" stroke="#ff6f61" strokeWidth={1.5} strokeOpacity={0.7} />
+      {/* Internal stress fringe pattern */}
+      <defs>
+        <clipPath id={`sample-clip-${x.toFixed(0)}`}>
+          <rect x={x - r + 2} y={y - r * 1.4 + 2} width={r * 2 - 4} height={r * 2.8 - 4} rx={5} />
+        </clipPath>
+      </defs>
+      <g clipPath={`url(#sample-clip-${x.toFixed(0)})`}>
+        {/* Concentric stress rings */}
+        {Array.from({ length: 6 }, (_, i) => {
+          const radius = 4 + i * (r * 0.9 / 6);
+          const colors = ['#ff6f61', '#fbbf52', '#4ade80', '#46cdd9', '#ff6f61', '#fbbf52'];
+          return <ellipse key={i} cx={x} cy={y} rx={r * 0.5} ry={radius * 1.1}
+            fill="none" stroke={colors[i]} strokeWidth={1.2} strokeOpacity={0.5 - i * 0.06} />;
+        })}
+        {/* Diagonal stress lines */}
+        {[-1, 1].map(sign => (
+          <line key={sign} x1={x - r} y1={y + sign * r * 1.2} x2={x + r} y2={y - sign * r * 1.2}
+            stroke="#ff6f61" strokeWidth={0.8} strokeOpacity={0.25} strokeDasharray="6 4" />
+        ))}
+      </g>
+      {/* Force arrows */}
+      <line x1={x} y1={y - r * 1.4 - 8} x2={x} y2={y - r * 1.4 - 1} stroke="#ffb74d" strokeWidth={1.5} markerEnd="url(#arrow-down)" />
+      <line x1={x} y1={y + r * 1.4 + 8} x2={x} y2={y + r * 1.4 + 1} stroke="#ffb74d" strokeWidth={1.5} markerEnd="url(#arrow-up)" />
+      <text x={x} y={y - r * 1.4 - 12} fill="#ffb74d" fontSize={9} fontWeight={600} textAnchor="middle"
+        fontFamily="JetBrains Mono, monospace">F</text>
+      <text x={x} y={y + r * 1.4 + 21} fill="#ffb74d" fontSize={9} fontWeight={600} textAnchor="middle"
+        fontFamily="JetBrains Mono, monospace">F</text>
+      {/* Arrow markers */}
+      <defs>
+        <marker id="arrow-down" viewBox="0 0 10 10" refX={5} refY={10} markerWidth={6} markerHeight={6} orient="auto">
+          <path d="M 0 0 L 5 10 L 10 0" fill="#ffb74d" />
+        </marker>
+        <marker id="arrow-up" viewBox="0 0 10 10" refX={5} refY={0} markerWidth={6} markerHeight={6} orient="auto">
+          <path d="M 0 10 L 5 0 L 10 10" fill="#ffb74d" />
+        </marker>
+      </defs>
     </g>
   );
 }

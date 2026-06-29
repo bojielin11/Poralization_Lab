@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Aperture, ScanEye, Layers, Triangle, Gauge, Plus } from 'lucide-react';
+import { Zap, Aperture, ScanEye, Layers, Triangle, Gauge, Plus, Box } from 'lucide-react';
 import { useSimulationStore } from '../store/simulationStore';
 import { WaveplateModal } from './WaveplateModal';
 import type { OpticalElementType, WaveplateType } from '../types';
@@ -16,7 +16,8 @@ const OPTICAL_COMPONENTS: {
   { type: 'polarizer', label: '线偏振片', description: '透振方向可选', icon: <Aperture size={18} />, color: '#9aa7b2' },
   { type: 'analyzer', label: '检偏器', description: '可旋转检测偏振方向', icon: <ScanEye size={18} />, color: '#46cdd9' },
   { type: 'waveplate', label: '波片', description: 'λ/4、λ/2、全波片可选', icon: <Layers size={18} />, color: '#4ade80' },
-  { type: 'prism', label: '三棱镜', description: '分光、折射', icon: <Triangle size={18} />, color: '#ff6f61' },
+  { type: 'sample', label: '应力样品', description: '光弹效应实验材料', icon: <Box size={18} />, color: '#ff6f61' },
+  { type: 'prism', label: '三棱镜', description: '分光、折射', icon: <Triangle size={18} />, color: '#ffb74d' },
   { type: 'detector', label: '光强探测器', description: '测量透射光强', icon: <Gauge size={18} />, color: '#7ee0e8' },
 ];
 

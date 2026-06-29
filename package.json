@@ -1,13 +1,33 @@
 {
-  "name": "react-app",
+  "name": "polarization-lab",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.2.0",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 0.0.0.0 --port 8080",
     "build": "tsc -b && vite build",
-    "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron:dev": "concurrently \"vite --host 0.0.0.0 --port 8080\" \"sleep 2 && cross-env NODE_ENV=development electron .\"",
+    "electron:build": "tsc -b && vite build && electron-builder --win portable",
+    "electron:start": "electron .",
+    "shortcut": "node create-shortcut.cjs"
+  },
+  "build": {
+    "appId": "com.polarization-lab.app",
+    "productName": "偏振光虚拟实验系统",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "portable",
+      "icon": "public/icon.png"
+    }
   },
   "dependencies": {
     "@tailwindcss/forms": "^0.5.11",
@@ -26,6 +46,10 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
+    "concurrently": "^9.2.3",
+    "cross-env": "^10.1.0",
+    "electron": "^42.5.1",
+    "electron-builder": "^26.15.3",
     "oxlint": "^1.69.0",
     "playwright": "^1.61.1",
     "typescript": "~6.0.2",
