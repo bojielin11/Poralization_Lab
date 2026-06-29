@@ -59,46 +59,30 @@ function PolarPlot() {
   const analyzer = elements.find(el => el.type === 'analyzer');
   const currentAngle = analyzer?.angle ?? 0;
 
-  // Transform data points to polar format
-  const polarDataPoints = useMemo(() => {
-    if (dataPoints.length === 0) return [];
-    return dataPoints.map(p => ({
-      angle: p.angle,
-      r: p.intensity,
-      label: `${p.angle}°`,
-    }));
-  }, [dataPoints]);
-
-  // Theory curve in polar coords
-  const theoryCurve = useMemo(() => Array.from({ length: 361 }, (_, i) => ({
-    angle: i,
-    r: Math.cos((i - currentAngle) * Math.PI / 180) ** 2,
-  })), [currentAngle]);
+  // Build combined data array: theory curve + data point slots
+  const combinedData = useMemo(() => Array.from({ length: 361 }, (_, i) => {
+    const dp = dataPoints.find(p => p.angle === i);
+    return {
+      angle: i,
+      theory: Math.cos((i - currentAngle) * Math.PI / 180) ** 2,
+      measured: dp ? dp.intensity : null,
+    };
+  }), [dataPoints, currentAngle]);
 
   return (
     <div style={{ width: '100%', height: '100%' }}>
       <ResponsiveContainer>
-        <RadarChart data={theoryCurve} cx="50%" cy="50%" outerRadius="80%" startAngle={-90} endAngle={270}>
+        <RadarChart data={combinedData} cx="50%" cy="50%" outerRadius="80%" startAngle={-90} endAngle={270}>
           <PolarGrid stroke="rgba(255,255,255,0.08)" />
           <PolarAngleAxis dataKey="angle" tick={false} />
           <PolarRadiusAxis angle={90} domain={[0, 1]} tick={false} axisLine={false} />
           {/* Theory curve */}
-          <Radar dataKey="r" stroke="#46cdd9" strokeWidth={1.5} fill="#46cdd9" fillOpacity={0.06} dot={false} />
+          <Radar dataKey="theory" stroke="#46cdd9" strokeWidth={1.5} fill="#46cdd9" fillOpacity={0.06} dot={false} />
+          {/* Data points — amber dots at recorded positions */}
+          <Radar dataKey="measured" stroke="none" fill="none"
+            dot={dataPoints.length > 0 ? { r: 5, fill: '#ffb74d', fillOpacity: 1, stroke: '#4a3520', strokeWidth: 1.5 } : false} />
         </RadarChart>
       </ResponsiveContainer>
-      {/* Data points overlay */}
-      {polarDataPoints.length > 0 && (
-        <div className="absolute inset-0 pointer-events-none">
-          <svg width="100%" height="100%" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet">
-            {polarDataPoints.map((dp, i) => {
-              const rad = (dp.angle - 90) * Math.PI / 180;
-              const cx = 100 + Math.cos(rad) * dp.r * 80;
-              const cy = 100 + Math.sin(rad) * dp.r * 80;
-              return <circle key={i} cx={cx} cy={cy} r={3} fill="#ffb74d" stroke="#4a3520" strokeWidth={0.8} />;
-            })}
-          </svg>
-        </div>
-      )}
     </div>
   );
 }
@@ -166,15 +150,47 @@ function WaveplateDataTable() {
 // ============================================================
 // Photoelastic Data Table
 // ============================================================
+function PhotoelasticColorBar() {
+  const stressForce = useSimulationStore(s => s.stressForce);
+  const bars = useMemo(() => {
+    const count = 60;
+    return Array.from({ length: count }, (_, i) => {
+      const phase = (i / count) * stressForce * 15 + stressForce * 0.5;
+      const delta = ((phase % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+      const dNorm = delta / (2 * Math.PI);
+      const r = Math.sin(dNorm * Math.PI * 3) * 0.5 + 0.5;
+      const g = Math.sin((dNorm + 0.33) * Math.PI * 3) * 0.5 + 0.5;
+      const b = Math.sin((dNorm + 0.67) * Math.PI * 3) * 0.5 + 0.5;
+      return `rgb(${Math.round(r*230)},${Math.round(g*230)},${Math.round(b*230)})`;
+    });
+  }, [stressForce]);
+  return (
+    <div className="p-3 rounded-lg bg-lab-bg-inset border border-lab-border/30">
+      <div className="text-xs font-semibold text-lab-accent mb-2">Michel-Lévy 干涉色标</div>
+      <div className="flex h-6 rounded overflow-hidden border border-lab-border/50">
+        {bars.map((color, i) => (
+          <div key={i} className="flex-1 h-full" style={{ backgroundColor: color }} />
+        ))}
+      </div>
+      <div className="flex justify-between text-[9px] text-lab-text-muted mt-1 font-mono">
+        <span>0 级</span><span>1 级</span><span>2 级</span><span>3 级</span>
+      </div>
+      <div className="text-2xs text-lab-text-muted mt-2 leading-relaxed">
+        暗场正交偏振片间，白光照射下不同相位差产生不同干涉色
+      </div>
+    </div>
+  );
+}
+
 function PhotoelasticDataTable() {
+  const stressForce = useSimulationStore(s => s.stressForce);
   return (
     <div className="space-y-3">
-      <div className="lab-empty py-4 text-2xs text-lab-text-secondary leading-relaxed">
-        光弹效应实验：<br/>
-        调整应力观察干涉条纹变化<br/>
-        记录应力值与对应条纹级次<br/>
-        对照 Michel-Lévy 色标分析
+      <div className="flex flex-wrap gap-2">
+        <span className="lab-chip">应力 <strong className="text-lab-warning ml-1">{(stressForce * 100).toFixed(0)}%</strong></span>
+        <span className="lab-chip text-lab-text-muted">δ≈{(stressForce * 10).toFixed(1)}π</span>
       </div>
+      <PhotoelasticColorBar />
       <div className="p-3 rounded-lg bg-lab-bg-inset border border-lab-border/30">
         <div className="text-xs font-semibold text-lab-accent mb-1">应力-光学定律</div>
         <div className="text-2xs text-lab-text-muted leading-relaxed">

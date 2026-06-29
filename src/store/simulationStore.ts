@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { OpticalElement, DataPoint, GuidedExperiment, GuidedStep } from '../types';
-import { malusIntensity, degToRad } from '../physics/core';
+import { malusIntensity, degToRad, angleBetween } from '../physics/core';
 
 // ============================================================
 // Guided experiment step definitions
@@ -284,11 +284,31 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   setStressForce: (v) => set({ stressForce: v }),
 
   recordDataPoint: () => {
-    const { elements, dataPoints, noiseLevel } = get();
+    const { elements, dataPoints, noiseLevel, activeExperiment } = get();
     const analyzer = elements.find(el => el.type === 'analyzer');
     if (!analyzer) return;
     const angle = analyzer.angle;
-    const theory = malusIntensity(1.0, angle);
+    // For waveplate experiments, use polarizer+waveplate+analyzer model
+    const hasWaveplate = elements.some(el => el.type === 'waveplate');
+    let theory: number;
+    if (hasWaveplate) {
+      // Simplified: intensity varies between I_min and I_max based on analyzer angle
+      // For QWP at 45°: circular → constant intensity. For general: elliptical.
+      const waveplate = elements.find(el => el.type === 'waveplate')!;
+      const phase = waveplate.phaseRetardation ?? Math.PI / 2;
+      const wpAngle = waveplate.angle;
+      const polAngle = elements.find(el => el.type === 'polarizer')?.angle ?? 0;
+      // Simplified model: I = 1 - sin²(δ/2)·sin²(2α)
+      const alpha = angleBetween(wpAngle, polAngle);
+      const thetaA = angleBetween(analyzer.angle, polAngle);
+      const sinD2 = Math.sin(phase / 2);
+      const sin2Alpha = Math.sin(2 * alpha * Math.PI / 180);
+      const extinction = sinD2 * sinD2 * sin2Alpha * sin2Alpha;
+      const cosTerm = Math.cos(2 * thetaA * Math.PI / 180);
+      theory = Math.max(0, Math.min(1, 1 - extinction * (0.5 + 0.5 * cosTerm)));
+    } else {
+      theory = malusIntensity(1.0, angleBetween(angle, elements.find(el => el.type === 'polarizer')?.angle ?? 0));
+    }
     const totalNoise = Math.sqrt(0.012 * 0.012 + noiseLevel * noiseLevel);
     let u = 0, v = 0;
     while (u === 0) u = Math.random();
@@ -306,14 +326,32 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   clearDataPoints: () => set({ dataPoints: [] }),
 
   autoCollect: () => {
-    const { elements, noiseLevel } = get();
+    const { elements, noiseLevel, activeExperiment } = get();
     const analyzer = elements.find(el => el.type === 'analyzer');
     if (!analyzer) return;
     set({ dataPoints: [] });
-    // Collect all angles 0..180 step 5
-    const angles = Array.from({ length: 37 }, (_, i) => i * 5);
+    // Waveplate experiments need 0-360, others 0-180
+    const maxAngle = activeExperiment === 'exp-waveplate' ? 360 : 180;
+    const step = activeExperiment === 'exp-waveplate' ? 10 : 5;
+    const angles = Array.from({ length: Math.floor(maxAngle / step) + 1 }, (_, i) => i * step);
+    const hasWaveplate = elements.some(el => el.type === 'waveplate');
     const points: DataPoint[] = angles.map(a => {
-      const theory = malusIntensity(1.0, a);
+      let theory: number;
+      if (hasWaveplate) {
+        const waveplate = elements.find(el => el.type === 'waveplate')!;
+        const phase = waveplate.phaseRetardation ?? Math.PI / 2;
+        const wpAngle = waveplate.angle;
+        const polAngle = elements.find(el => el.type === 'polarizer')?.angle ?? 0;
+        const alpha = angleBetween(wpAngle, polAngle);
+        const thetaA = angleBetween(a, polAngle);
+        const sinD2 = Math.sin(phase / 2);
+        const sin2Alpha = Math.sin(2 * alpha * Math.PI / 180);
+        const extinction = sinD2 * sinD2 * sin2Alpha * sin2Alpha;
+        const cosTerm2 = Math.cos(2 * thetaA * Math.PI / 180);
+        theory = Math.max(0, Math.min(1, 1 - extinction * (0.5 + 0.5 * cosTerm2)));
+      } else {
+        theory = malusIntensity(1.0, angleBetween(a, elements.find(el => el.type === 'polarizer')?.angle ?? 0));
+      }
       const totalNoise = Math.sqrt(0.012 * 0.012 + noiseLevel * noiseLevel);
       let u = 0, v = 0;
       while (u === 0) u = Math.random();
