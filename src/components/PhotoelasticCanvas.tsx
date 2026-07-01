@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import { usePhotoelasticStore } from '../store/photoelasticStore';
 import {
   getSpectrumLUT,
@@ -31,6 +31,7 @@ export function PhotoelasticCanvas() {
   const selectForce = usePhotoelasticStore(s => s.selectForce);
 
   // Drag state
+  const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ id: number | null; startX: number; startY: number }>({
     id: null, startX: 0, startY: 0,
   });
@@ -232,6 +233,7 @@ export function PhotoelasticCanvas() {
     if (nearest && nearest.distPx <= 18) {
       // Start dragging this force
       dragRef.current = { id: nearest.force.id, startX: pt.x, startY: pt.y };
+      setIsDragging(true);
       selectForce(nearest.force.id);
     }
   }, [canvasToNorm, findNearest, selectForce]);
@@ -247,6 +249,7 @@ export function PhotoelasticCanvas() {
   const handleMouseUp = useCallback((e: React.MouseEvent) => {
     if (dragRef.current.id !== null) {
       dragRef.current = { id: null, startX: 0, startY: 0 };
+      setIsDragging(false);
       return;
     }
     // Click (no drag)
@@ -286,7 +289,7 @@ export function PhotoelasticCanvas() {
         onContextMenu={handleContextMenu}
         className="rounded-lg border border-lab-border max-w-full max-h-full"
         style={{
-          cursor: dragRef.current.id !== null ? 'grabbing' : 'crosshair',
+          cursor: isDragging ? 'grabbing' : 'crosshair',
           boxShadow: '0 1px 3px rgba(20,20,19,0.06), 0 4px 14px rgba(20,20,19,0.08)',
           aspectRatio: '1 / 1',
           objectFit: 'contain',
