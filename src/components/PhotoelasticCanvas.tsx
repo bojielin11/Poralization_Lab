@@ -36,6 +36,14 @@ export function PhotoelasticCanvas() {
     id: null, startX: 0, startY: 0,
   });
 
+  // Probe state — computed on hover (not dragging)
+  const [probe, setProbe] = useState<{
+    screenX: number; screenY: number;
+    sigmaDiff: number; retardationNm: number; phi: number;
+    colorR: number; colorG: number; colorB: number;
+  } | null>(null);
+  const probeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Mark dirty on any param change
   useEffect(() => {
     needsRender.current = true;
@@ -83,8 +91,9 @@ export function PhotoelasticCanvas() {
     }
     ctx.putImageData(imageData, 0, 0);
 
-    // Draw force markers
-    drawForceMarkers(ctx, currentForces, currentSelected, fieldHeight);
+    // Draw real force markers only (skip image forces)
+    const realForces = currentForces.filter(f => !f.isImage);
+    drawForceMarkers(ctx, realForces, currentSelected, fieldHeight);
 
     // Draw legend bar
     drawLegend(ctx, lut, currentPol, currentAna, fieldHeight);
@@ -174,7 +183,7 @@ export function PhotoelasticCanvas() {
     ctx.stroke();
 
     // Color bar
-    const maxRet = 3000;
+    const maxRet = 5500;
     for (let px = 0; px < barW; px++) {
       const ret = (px / (barW - 1)) * maxRet;
       const color = computeLegendColor(lut, ret, pol, ana);
@@ -186,16 +195,33 @@ export function PhotoelasticCanvas() {
     ctx.lineWidth = 1;
     ctx.strokeRect(barX, barY, barW, barH);
 
-    // Labels
+    // Labels with order markers
     ctx.fillStyle = '#8a867c';
     ctx.font = '11px system-ui, sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText('Michel-Lévy 光程差 Γ / nm', barX, y + 14);
     ctx.fillText('0', barX, y + 47);
     ctx.textAlign = 'center';
-    ctx.fillText('1500', CANVAS_RES / 2, y + 47);
+    const orderMarkers = [
+      { nm: 550, label: '1 级' },
+      { nm: 1100, label: '2 级' },
+      { nm: 1650, label: '3 级' },
+      { nm: 2200, label: '4 级' },
+    ];
+    for (const m of orderMarkers) {
+      const mx = barX + (m.nm / maxRet) * barW;
+      ctx.strokeStyle = '#141413';
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(mx, barY - 2);
+      ctx.lineTo(mx, barY + barH + 2);
+      ctx.stroke();
+      ctx.fillStyle = '#8a867c';
+      ctx.fillText(m.label, mx, y + 47);
+    }
+    // Final label
     ctx.textAlign = 'right';
-    ctx.fillText('3000', CANVAS_RES - 12, y + 47);
+    ctx.fillText('5500', CANVAS_RES - 12, y + 47);
   }
 
   // ---- Coordinate conversion ----
@@ -225,26 +251,52 @@ export function PhotoelasticCanvas() {
     return best;
   }, []);
 
-  // ---- Mouse handlers ----
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    const pt = canvasToNorm(e.clientX, e.clientY);
-    if (!pt) return;
-    const nearest = findNearest(pt.x, pt.y);
-    if (nearest && nearest.distPx <= 18) {
-      // Start dragging this force
-      dragRef.current = { id: nearest.force.id, startX: pt.x, startY: pt.y };
-      setIsDragging(true);
-      selectForce(nearest.force.id);
-    }
-  }, [canvasToNorm, findNearest, selectForce]);
-
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (dragRef.current.id === null) return;
+    // Update probe on hover (throttled)
+    if (dragRef.current.id === null) {
+      if (probeTimer.current) clearTimeout(probeTimer.current);
+      probeTimer.current = setTimeout(() => {
+        const pt = canvasToNorm(e.clientX, e.clientY);
+        if (!pt) { setProbe(null); return; }
+        const currentForces = usePhotoelasticStore.getState().forces;
+        const currentCoeff = MATERIALS[usePhotoelasticStore.getState().materialKey]?.coefficient ?? 1e-10;
+        const currentThickness = usePhotoelasticStore.getState().thickness;
+        const currentPol = usePhotoelasticStore.getState().polarizerAngle;
+        const currentAna = usePhotoelasticStore.getState().analyzerAngle;
+        const currentWl = usePhotoelasticStore.getState().wavelength;
+        const lut = getSpectrumLUT(currentWl);
+        const stress = computeStressField(currentForces, pt.x, pt.y);
+        const thicknessM = currentThickness * 1e-3;
+        const retNm = currentCoeff * stress.sigmaDiff * thicknessM * 1e9;
+        const color = computePixelColor(lut, stress.sigmaDiff, stress.phi, currentCoeff, currentThickness, currentPol, currentAna);
+        setProbe({
+          screenX: e.clientX, screenY: e.clientY,
+          sigmaDiff: stress.sigmaDiff,
+          retardationNm: retNm,
+          phi: stress.phi * 180 / Math.PI,
+          colorR: color.r, colorG: color.g, colorB: color.b,
+        });
+      }, 60);
+      return;
+    }
+    // Dragging
     const pt = canvasToNorm(e.clientX, e.clientY);
     if (!pt) return;
     moveForce(dragRef.current.id, pt.x, pt.y);
     needsRender.current = true;
   }, [canvasToNorm, moveForce]);
+
+  const handleMouseDownProbe = useCallback((e: React.MouseEvent) => {
+    setProbe(null); // clear probe on click
+    const pt = canvasToNorm(e.clientX, e.clientY);
+    if (!pt) return;
+    const nearest = findNearest(pt.x, pt.y);
+    if (nearest && nearest.distPx <= 18) {
+      dragRef.current = { id: nearest.force.id, startX: pt.x, startY: pt.y };
+      setIsDragging(true);
+      selectForce(nearest.force.id);
+    }
+  }, [canvasToNorm, findNearest, selectForce]);
 
   const handleMouseUp = useCallback((e: React.MouseEvent) => {
     if (dragRef.current.id !== null) {
@@ -259,11 +311,18 @@ export function PhotoelasticCanvas() {
     if (nearest && nearest.distPx <= 15) {
       selectForce(nearest.force.id);
     } else {
-      // Add new force (or move selected if at max)
       addForce(pt.x, pt.y);
     }
     needsRender.current = true;
   }, [canvasToNorm, findNearest, selectForce, addForce]);
+
+  const handleMouseLeave = useCallback(() => {
+    setProbe(null);
+    if (dragRef.current.id !== null) {
+      dragRef.current = { id: null, startX: 0, startY: 0 };
+      setIsDragging(false);
+    }
+  }, []);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -277,15 +336,15 @@ export function PhotoelasticCanvas() {
   }, [canvasToNorm, findNearest, removeForce]);
 
   return (
-    <div className="flex items-center justify-center h-full w-full p-4"
+    <div className="flex items-center justify-center h-full w-full p-4 relative"
       style={{ background: '#faf9f5' }}
     >
       <canvas
         ref={canvasRef}
-        onMouseDown={handleMouseDown}
+        onMouseDown={handleMouseDownProbe}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
         onContextMenu={handleContextMenu}
         className="rounded-lg border border-lab-border max-w-full max-h-full"
         style={{
@@ -296,6 +355,36 @@ export function PhotoelasticCanvas() {
         }}
         aria-label="光弹应力条纹图 — 点击添加力点，拖拽移动，右键删除"
       />
+
+      {/* Probe tooltip — floating stress readout */}
+      {probe && (
+        <div
+          className="fixed z-[200] pointer-events-none p-2.5 rounded-lg border border-lab-border/60 text-xs leading-relaxed font-mono"
+          style={{
+            left: probe.screenX + 16,
+            top: probe.screenY - 10,
+            background: '#faf9f5',
+            boxShadow: '0 1px 4px rgba(20,20,19,0.08), 0 2px 8px rgba(20,20,19,0.06)',
+            color: '#141413',
+          }}
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-3.5 h-3.5 rounded-sm border border-lab-border/40"
+              style={{ backgroundColor: `rgb(${probe.colorR},${probe.colorG},${probe.colorB})` }}
+            />
+            <span className="text-lab-text-secondary">探针读数</span>
+          </div>
+          <div className="space-y-0.5 text-[11px]">
+            <div>σ₁−σ₂ <span className="text-lab-accent-hover ml-1">
+              {probe.sigmaDiff < 1e3
+                ? probe.sigmaDiff.toFixed(1) + ' Pa'
+                : (probe.sigmaDiff / 1e3).toFixed(2) + ' kPa'}
+            </span></div>
+            <div>Γ <span className="text-lab-accent-hover ml-1">{probe.retardationNm.toFixed(0)} nm</span></div>
+            <div>φ <span className="text-lab-text-muted ml-1">{probe.phi.toFixed(1)}°</span></div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
