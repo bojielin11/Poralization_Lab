@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Zap, Save, Download, HelpCircle, ChevronDown, BookOpen, Compass, ArrowLeft
+  Save, Download, HelpCircle, ChevronDown, BookOpen, Compass, ArrowLeft
 } from 'lucide-react';
 import { useSimulationStore } from '../store/simulationStore';
 
@@ -22,12 +22,26 @@ export function Navbar() {
 
   const handleExport = () => {
     const store = useSimulationStore.getState();
-    if (store.dataPoints.length === 0) return;
-    let csv = 'θ(°),I/I₀(实测),I/I₀(理论),偏差\n';
-    for (const p of store.dataPoints) {
-      csv += `${p.angle},${p.intensity.toFixed(3)},${p.theory.toFixed(3)},${(p.intensity - p.theory).toFixed(4)}\n`;
+    const totalPoints = store.dataGroups.reduce((s, g) => s + g.dataPoints.length, 0);
+    if (totalPoints === 0) return;
+
+    // Multi-group CSV with group column for waveplate experiment
+    const isMultiGroup = store.dataGroups.length > 1;
+    let csv = isMultiGroup
+      ? '﻿分组,波片类型,θ(°),I/I₀(实测),I/I₀(理论),偏差\n'
+      : '﻿θ(°),I/I₀(实测),I/I₀(理论),偏差\n';
+
+    for (const group of store.dataGroups) {
+      for (const p of group.dataPoints) {
+        if (isMultiGroup) {
+          csv += `${group.label},${group.waveplateType || ''},${p.angle},${p.intensity.toFixed(3)},${p.theory.toFixed(3)},${(p.intensity - p.theory).toFixed(4)}\n`;
+        } else {
+          csv += `${p.angle},${p.intensity.toFixed(3)},${p.theory.toFixed(3)},${(p.intensity - p.theory).toFixed(4)}\n`;
+        }
+      }
     }
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -44,24 +58,17 @@ export function Navbar() {
   return (
     <nav className="h-[54px] flex items-center gap-4 px-6 flex-shrink-0 z-[100]"
       style={{
-        background: 'rgba(14, 20, 26, 0.82)',
-        borderBottom: '1px solid #243240',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
+        background: 'rgba(250, 249, 245, 0.86)',
+        borderBottom: '1px solid #ded8ca',
+        backdropFilter: 'blur(14px)',
+        WebkitBackdropFilter: 'blur(14px)',
       }}
     >
       {/* Brand */}
       <div className="flex items-center gap-3">
-        <div className="flex items-center justify-center w-8 h-8 rounded-[9px] border border-lab-accent/45 text-lab-accent"
-          style={{
-            background: 'radial-gradient(circle at 35% 30%, rgba(70,205,217,0.30), rgba(70,205,217,0.06))',
-            boxShadow: '0 0 18px rgba(70,205,217,0.22), inset 0 0 10px rgba(70,205,217,0.10)',
-          }}
-        >
-          <Zap size={18} />
-        </div>
+        <img src="/icon.png" alt="logo" className="w-8 h-8 rounded-[9px]" />
         <div className="flex flex-col leading-tight">
-          <span className="text-[10px] font-semibold tracking-[1.4px] text-lab-accent-hover/80 uppercase">大学物理 · 光学实验</span>
+          <span className="text-[10px] font-semibold tracking-[1.4px] text-lab-text-muted uppercase">大学物理 · 光学实验</span>
           <span className="text-base font-bold text-lab-text-primary tracking-[-0.01em]">偏振光虚拟实验系统</span>
         </div>
       </div>

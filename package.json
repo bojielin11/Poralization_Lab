@@ -1,7 +1,7 @@
 {
   "name": "polarization-lab",
   "private": true,
-  "version": "1.4.4",
+  "version": "1.5.0",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -9,7 +9,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "electron:dev": "concurrently \"vite --host 0.0.0.0 --port 8080\" \"sleep 2 && cross-env NODE_ENV=development electron .\"",
-    "electron:build": "tsc -b && vite build && electron-builder --win portable",
+    "electron:build": "tsc -b && vite build && electron-builder --win nsis",
     "electron:start": "electron .",
     "shortcut": "node create-shortcut.cjs"
   },
@@ -26,13 +26,27 @@
       "package.json"
     ],
     "win": {
-      "target": "portable",
+      "target": "nsis",
       "icon": "public/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "public/icon.ico",
+      "uninstallerIcon": "public/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "bojielin11",
+      "repo": "Poralization_Lab"
     }
   },
   "dependencies": {
     "@tailwindcss/forms": "^0.5.11",
     "autoprefixer": "^10.5.2",
+    "electron-updater": "^6.8.9",
     "framer-motion": "^12.42.0",
     "lucide-react": "^1.22.0",
     "postcss": "^8.5.16",
