@@ -7,6 +7,8 @@ import { OpticalBench } from './components/OpticalBench';
 import { ParameterPanel } from './components/ParameterPanel';
 import { DataPanel } from './components/DataPanel';
 import { ExperimentGuide } from './components/ExperimentGuide';
+import { PhotoelasticView } from './components/PhotoelasticView';
+import { PhotoelasticDataPanel } from './components/PhotoelasticDataPanel';
 
 class ErrorBoundary extends Component<{ name: string; children: React.ReactNode }, { error: Error | null }> {
   constructor(props: any) { super(props); this.state = { error: null }; }
@@ -52,15 +54,20 @@ export default function App() {
     <div className="h-screen w-screen flex flex-col overflow-hidden"
       style={{
         background: `
-          radial-gradient(1200px 620px at 78% -8%, rgba(70,205,217,0.07), transparent 60%),
-          radial-gradient(900px 520px at 8% 108%, rgba(255,212,81,0.045), transparent 60%),
-          linear-gradient(180deg, #0c141a 0%, #0a0e12 46%, #070a0d 100%)
+          radial-gradient(1100px 560px at 82% -10%, rgba(217,119,87,0.05), transparent 62%),
+          radial-gradient(820px 480px at 6% 110%, rgba(217,119,87,0.035), transparent 60%),
+          #faf9f5
         `
       }}
     >
       <ErrorBoundary name="Navbar"><Navbar /></ErrorBoundary>
 
-      {activeExperiment ? (
+      {activeExperiment === 'exp-photoelastic' ? (
+        <>
+          <ErrorBoundary name="PhotoelasticView"><PhotoelasticView /></ErrorBoundary>
+          <ErrorBoundary name="PhotoelasticDataPanel"><PhotoelasticDataPanel /></ErrorBoundary>
+        </>
+      ) : activeExperiment ? (
         <>
           <ExperimentView />
           <ErrorBoundary name="DataPanel"><DataPanel /></ErrorBoundary>

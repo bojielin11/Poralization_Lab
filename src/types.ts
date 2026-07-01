@@ -26,9 +26,20 @@ export interface DataPoint {
   theory: number;
 }
 
+export interface DataGroup {
+  id: string;
+  label: string;
+  color: string;
+  dataPoints: DataPoint[];
+  visible: boolean;
+  waveplateType?: WaveplateType;
+  polarizerAngle?: number;
+  waveplateAngle?: number;
+}
+
 export type ExperimentMode = 'free' | 'guided';
 
-export type GuidedExperiment = 'malus-law' | 'linear-polarization' | 'waveplate' | null;
+export type GuidedExperiment = 'malus-law' | 'linear-polarization' | 'waveplate' | 'photoelastic' | null;
 
 export interface GuidedStep {
   id: number;
@@ -55,4 +66,20 @@ export interface PolarizationState {
   Ey: number;
   phaseDiff: number;
   intensity: number;
+}
+
+// ============================================================
+// Photoelastic experiment types
+// ============================================================
+export interface ForcePoint {
+  id: number;
+  x: number;        // normalized 0..1
+  y: number;        // normalized 0..1
+  magnitude: number; // 0.5 .. 10
+}
+
+export interface MaterialConfig {
+  key: string;
+  name: string;
+  coefficient: number; // stress-optical coefficient C (Pa⁻¹)
 }
