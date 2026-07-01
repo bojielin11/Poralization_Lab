@@ -21,7 +21,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build & Publish to GitHub Release
+      - name: Build & Package
         run: npm run electron:build
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          files: release/*.exe
+          generate_release_notes: true
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
