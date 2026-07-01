@@ -111,19 +111,22 @@ function httpsGetJSON(url) {
 }
 
 function downloadFile(url, destPath, onProgress) {
-  return new Promise(function (resolve, reject) {
-    var file = fs.createWriteStream(destPath);
-    var downloaded = 0;
+  var downloaded = 0;
+  var lastTick = Date.now();
+  var lastBytes = 0;
 
-    function attempt(dlUrl) {
+  function attempt(dlUrl) {
+    return new Promise(function (resolve, reject) {
+      var file = fs.createWriteStream(destPath);
       https.get(dlUrl, {
         headers: { 'User-Agent': REPO_NAME + '/update-check', Accept: 'application/octet-stream' },
       }, function (res) {
         // Follow redirect
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           file.close();
-          fs.unlink(destPath, function () {});
-          attempt(res.headers.location);
+          fs.unlink(destPath, function () {
+            attempt(res.headers.location).then(resolve).catch(reject);
+          });
           return;
         }
         if (res.statusCode !== 200) {
@@ -135,17 +138,27 @@ function downloadFile(url, destPath, onProgress) {
         var total = parseInt(res.headers['content-length'] || '0', 10);
         res.on('data', function (chunk) {
           downloaded += chunk.length;
-          if (onProgress && total > 0) {
-            onProgress({ downloaded: downloaded, total: total, percent: Math.round((downloaded / total) * 100) });
+          if (onProgress) {
+            var now = Date.now();
+            var dt = (now - lastTick) / 1000 || 1;
+            var bytesPerSecond = Math.round((downloaded - lastBytes) / dt);
+            lastTick = now;
+            lastBytes = downloaded;
+            onProgress({
+              downloaded: downloaded,
+              total: total || downloaded,
+              percent: total > 0 ? Math.round((downloaded / total) * 100) : 0,
+              bytesPerSecond: bytesPerSecond,
+            });
           }
         });
         res.pipe(file);
         file.on('finish', function () { file.close(); resolve(); });
         file.on('error', function (err) { fs.unlink(destPath, function () {}); reject(err); });
       }).on('error', function (err) { fs.unlink(destPath, function () {}); reject(err); });
-    }
-    attempt(url);
-  });
+    });
+  }
+  return attempt(url);
 }
 
 // ── Progress window ─────────────────────────────────────────
@@ -184,8 +197,9 @@ function createProgressWin(version) {
     '<script>window.__upd=function(p){' +
     'document.getElementById("bar").style.width=p.percent+"%";' +
     'document.getElementById("pct").textContent=p.percent+"%";' +
+    'var speed=p.bytesPerSecond>0?(p.bytesPerSecond/1024).toFixed(0)+" KB/s":"...";' +
     'document.getElementById("status").textContent=' +
-    '(p.downloaded/1048576).toFixed(1)+" MB / "+(p.total/1048576).toFixed(1)+" MB  ("+(p.bytesPerSecond/1024).toFixed(0)+" KB/s)";' +
+    '(p.downloaded/1048576).toFixed(1)+" MB / "+(p.total/1048576).toFixed(1)+" MB  ("+speed+")";' +
     '};<\/script>' +
     '</body></html>';
 
