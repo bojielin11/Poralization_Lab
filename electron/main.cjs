@@ -376,10 +376,10 @@ catch {
         Start-Process -FilePath $newExe
     }
     else {
-        # Show error dialog
+        # Show error dialog (one-line message, no newline backticks)
         Add-Type -AssemblyName System.Windows.Forms
         [System.Windows.Forms.MessageBox]::Show(
-            "自动更新失败，请手动下载新版本。`n`n错误：$_",
+            "自动更新失败，请手动下载新版本。错误：$_",
             "更新失败",
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Error
