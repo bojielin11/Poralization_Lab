@@ -1,7 +1,7 @@
 {
   "name": "polarization-lab",
   "private": true,
-  "version": "1.2.0",
+  "version": "1.4.2",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -16,6 +16,7 @@
   "build": {
     "appId": "com.polarization-lab.app",
     "productName": "偏振光虚拟实验系统",
+    "electronDist": "node_modules/electron/dist",
     "directories": {
       "output": "release"
     },
@@ -26,7 +27,7 @@
     ],
     "win": {
       "target": "portable",
-      "icon": "public/icon.png"
+      "icon": "public/icon.ico"
     }
   },
   "dependencies": {
