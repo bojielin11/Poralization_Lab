@@ -219,42 +219,29 @@ function createProgressWin(version) {
 function esc(s) { return s.replace(/'/g, "''"); }
 
 function buildUpdateScript(newExePath, targetExe) {
+  // Use a .cmd batch file — more reliable than PowerShell for this
   return [
-    '# Polarization Lab -- Auto-updater',
-    '$ErrorActionPreference = "Stop"',
+    '@echo off',
+    'setlocal',
+    'set "new=' + newExePath.replace(/%/g, '%%') + '"',
+    'set "target=' + targetExe.replace(/%/g, '%%') + '"',
     '',
-    "$newExe    = '" + esc(newExePath) + "'",
-    "$targetExe = '" + esc(targetExe) + "'",
+    'rem Wait for the app to fully exit (portable wrapper needs time)',
+    'timeout /t 5 /nobreak >nul',
     '',
-    '# Wait for the old app to fully exit',
-    'Start-Sleep -Seconds 3',
+    ':retry',
+    'rem Try to replace old exe with new one',
+    'move /y "%new%" "%target%" 2>nul',
+    'if exist "%new%" (',
+    '    timeout /t 1 /nobreak >nul',
+    '    goto retry',
+    ')',
     '',
-    'try {',
-    '    if (-not (Test-Path $newExe)) { throw "Downloaded file not found" }',
-    '    Write-Host "Replacing old exe with new version..."',
-    '    Move-Item -Force -Path $newExe -Destination $targetExe',
-    '    Write-Host "Launching updated application..."',
-    '    Start-Process -FilePath $targetExe',
-    '}',
-    'catch {',
-    '    Write-Host "ERROR: $_"',
-    '    if (Test-Path $newExe) {',
-    '        Write-Host "Launching downloaded exe directly as fallback..."',
-    '        Start-Process -FilePath $newExe',
-    '    } else {',
-    '        Add-Type -AssemblyName System.Windows.Forms',
-    '        [System.Windows.Forms.MessageBox]::Show(',
-    '            "Update failed: " + $_.Exception.Message,',
-    '            "Update Error",',
-    '            [System.Windows.Forms.MessageBoxButtons]::OK,',
-    '            [System.Windows.Forms.MessageBoxIcon]::Error',
-    '        )',
-    '    }',
-    '}',
-    'finally {',
-    '    Start-Sleep -Seconds 2',
-    '    Remove-Item -Force -LiteralPath $MyInvocation.MyCommand.Path -ErrorAction SilentlyContinue',
-    '}',
+    'rem Launch the updated app',
+    'start "" "%target%"',
+    '',
+    'rem Self-delete this script',
+    'del "%~f0"',
   ].join('\r\n');
 }
 
@@ -331,11 +318,11 @@ async function checkForUpdates() {
   if (result.response !== 0) return;
 
   var targetExe = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
-  var scriptPath = path.join(tmpDir, 'polarization-update.ps1');
-  fs.writeFileSync(scriptPath, buildUpdateScript(newExePath, targetExe), 'utf8');
+  var scriptPath = path.join(tmpDir, 'polarization-update.cmd');
+  fs.writeFileSync(scriptPath, buildUpdateScript(newExePath, targetExe), 'ascii');
 
-  spawn('powershell.exe', [
-    '-ExecutionPolicy', 'Bypass', '-NoProfile', '-WindowStyle', 'Hidden', '-File', scriptPath,
+  spawn('cmd.exe', [
+    '/c', 'start', '/min', '""', scriptPath,
   ], {
     detached: true, stdio: 'ignore', windowsHide: true,
   }).unref();
