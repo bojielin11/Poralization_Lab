@@ -7,8 +7,6 @@ const { spawn } = require('child_process');
 
 const PORT = 18080;
 const DIST_DIR = path.join(__dirname, '..', 'dist');
-
-// ── Update config ──────────────────────────────────────────
 const REPO_OWNER = 'bojielin11';
 const REPO_NAME = 'Poralization_Lab';
 const UPDATE_CHECK_DELAY = 3000;
@@ -49,31 +47,21 @@ function startServer() {
       });
     });
     server.on('error', function (err) {
-      console.error('[polarization-lab] Server error:', err.message);
       if (err.code === 'EADDRINUSE') {
-        server.listen(PORT + 1, '127.0.0.1', function () {
-          console.log('[polarization-lab] Server on http://127.0.0.1:' + (PORT + 1));
-          resolve();
-        });
+        server.listen(PORT + 1, '127.0.0.1', function () { resolve(); });
         server.on('error', function () { resolve(); });
         return;
       }
       resolve();
     });
-    server.listen(PORT, '127.0.0.1', function () {
-      console.log('[polarization-lab] Server on http://127.0.0.1:' + PORT);
-      resolve();
-    });
+    server.listen(PORT, '127.0.0.1', function () { resolve(); });
   });
 }
 
 // ── Window ──────────────────────────────────────────────────
 function createWindow() {
   win = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    minWidth: 1024,
-    minHeight: 680,
+    width: 1400, height: 900, minWidth: 1024, minHeight: 680,
     title: '偏振光虚拟实验系统',
     backgroundColor: '#0a0e12',
     icon: path.join(__dirname, '..', 'dist', 'icon.png'),
@@ -87,8 +75,7 @@ function createWindow() {
 
 // ── Helpers ─────────────────────────────────────────────────
 function semverCompare(a, b) {
-  var pa = a.split('.').map(Number);
-  var pb = b.split('.').map(Number);
+  var pa = a.split('.').map(Number), pb = b.split('.').map(Number);
   for (var i = 0; i < 3; i++) {
     if (pa[i] > pb[i]) return 1;
     if (pa[i] < pb[i]) return -1;
@@ -111,9 +98,7 @@ function httpsGetJSON(url) {
 }
 
 function downloadFile(url, destPath, onProgress) {
-  var downloaded = 0;
-  var lastTick = Date.now();
-  var lastBytes = 0;
+  var downloaded = 0, lastTick = Date.now(), lastBytes = 0;
 
   function attempt(dlUrl) {
     return new Promise(function (resolve, reject) {
@@ -121,35 +106,24 @@ function downloadFile(url, destPath, onProgress) {
       https.get(dlUrl, {
         headers: { 'User-Agent': REPO_NAME + '/update-check', Accept: 'application/octet-stream' },
       }, function (res) {
-        // Follow redirect
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           file.close();
-          fs.unlink(destPath, function () {
-            attempt(res.headers.location).then(resolve).catch(reject);
-          });
+          fs.unlink(destPath, function () { attempt(res.headers.location).then(resolve).catch(reject); });
           return;
         }
         if (res.statusCode !== 200) {
-          file.close();
-          fs.unlink(destPath, function () {});
-          reject(new Error('HTTP ' + res.statusCode));
-          return;
+          file.close(); fs.unlink(destPath, function () {});
+          reject(new Error('HTTP ' + res.statusCode)); return;
         }
         var total = parseInt(res.headers['content-length'] || '0', 10);
         res.on('data', function (chunk) {
           downloaded += chunk.length;
           if (onProgress) {
-            var now = Date.now();
-            var dt = (now - lastTick) / 1000 || 1;
-            var bytesPerSecond = Math.round((downloaded - lastBytes) / dt);
-            lastTick = now;
-            lastBytes = downloaded;
-            onProgress({
-              downloaded: downloaded,
-              total: total || downloaded,
-              percent: total > 0 ? Math.round((downloaded / total) * 100) : 0,
-              bytesPerSecond: bytesPerSecond,
-            });
+            var now = Date.now(), dt = (now - lastTick) / 1000 || 1;
+            var bps = Math.round((downloaded - lastBytes) / dt);
+            lastTick = now; lastBytes = downloaded;
+            onProgress({ downloaded: downloaded, total: total || downloaded,
+              percent: total > 0 ? Math.round((downloaded / total) * 100) : 0, bytesPerSecond: bps });
           }
         });
         res.pipe(file);
@@ -164,91 +138,102 @@ function downloadFile(url, destPath, onProgress) {
 // ── Progress window ─────────────────────────────────────────
 function createProgressWin(version) {
   var progWin = new BrowserWindow({
-    width: 420, height: 170,
-    resizable: false, closable: false, frame: false,
-    alwaysOnTop: true,
-    backgroundColor: '#faf8f5',
+    width: 420, height: 170, resizable: false, closable: false, frame: false,
+    alwaysOnTop: true, backgroundColor: '#faf8f5',
     webPreferences: { nodeIntegration: false, contextIsolation: true },
   });
-
   if (win && !win.isDestroyed()) {
     var pw = win.getSize()[0], ph = win.getSize()[1];
     var px = win.getPosition()[0], py = win.getPosition()[1];
     progWin.setPosition(px + Math.round((pw - 420) / 2), py + Math.round((ph - 170) / 2));
-  } else {
-    progWin.center();
-  }
+  } else { progWin.center(); }
 
-  var html =
-    '<!DOCTYPE html>' +
-    '<html><head><meta charset="utf-8"><style>' +
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' +
     '*{margin:0;padding:0;box-sizing:border-box}' +
-    'body{font-family:system-ui,-apple-system,"Microsoft YaHei",sans-serif;background:#faf8f5;padding:28px 30px;color:#1a1a1a;user-select:none}' +
+    'body{font-family:system-ui,"Microsoft YaHei",sans-serif;background:#faf8f5;padding:28px 30px;color:#1a1a1a}' +
     'h3{font-size:15px;font-weight:600;margin-bottom:4px}' +
     '.sub{font-size:12px;color:#999;margin-bottom:18px}' +
     '.bar-bg{background:#e8e4dd;border-radius:6px;height:8px;overflow:hidden}' +
     '.bar-fill{background:#c75b39;height:100%;width:0;border-radius:6px;transition:width .15s linear}' +
     '.pct{text-align:right;font-size:12px;color:#aaa;margin-top:6px}' +
-    '</style></head><body>' +
-    '<h3>正在下载更新 &mdash; v' + version + '</h3>' +
-    '<div class="sub" id="status">准备下载...</div>' +
+    '</style></head><body><h3>Downloading v' + version + '</h3>' +
+    '<div class="sub" id="status">Preparing...</div>' +
     '<div class="bar-bg"><div class="bar-fill" id="bar"></div></div>' +
     '<div class="pct" id="pct">0%</div>' +
     '<script>window.__upd=function(p){' +
     'document.getElementById("bar").style.width=p.percent+"%";' +
     'document.getElementById("pct").textContent=p.percent+"%";' +
-    'var speed=p.bytesPerSecond>0?(p.bytesPerSecond/1024).toFixed(0)+" KB/s":"...";' +
+    'var s=p.bytesPerSecond>0?(p.bytesPerSecond/1024).toFixed(0)+" KB/s":"...";' +
     'document.getElementById("status").textContent=' +
-    '(p.downloaded/1048576).toFixed(1)+" MB / "+(p.total/1048576).toFixed(1)+" MB  ("+speed+")";' +
-    '};<\/script>' +
-    '</body></html>';
+    '(p.downloaded/1048576).toFixed(1)+" / "+(p.total/1048576).toFixed(1)+" MB  ("+s+")";' +
+    '};<\/script></body></html>';
 
   progWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
-
   return {
     update: function (p) {
       if (progWin.isDestroyed()) return;
       progWin.webContents.executeJavaScript('window.__upd(' + JSON.stringify(p) + ')').catch(function () {});
     },
-    close: function () {
-      if (!progWin.isDestroyed()) progWin.close();
-    },
+    close: function () { if (!progWin.isDestroyed()) progWin.close(); },
   };
 }
 
-function esc(s) { return s.replace(/'/g, "''"); }
+// ── Build updater PowerShell script ─────────────────────────
+// NOTE: all strings use + concatenation, NOT `template literals`,
+// because PowerShell backticks (`n) would break JS parsing.
+function buildUpdateScript(newExePath, targetExe, targetDir) {
 
-function buildUpdateScript(newExePath, targetExe) {
-  // Use a .cmd batch file — more reliable than PowerShell for this
-  return [
-    '@echo off',
-    'setlocal',
-    'set "new=' + newExePath.replace(/%/g, '%%') + '"',
-    'set "target=' + targetExe.replace(/%/g, '%%') + '"',
-    '',
-    'rem Wait for the app to fully exit (portable wrapper needs time)',
-    'timeout /t 5 /nobreak >nul',
-    '',
-    ':retry',
-    'rem Try to replace old exe with new one',
-    'move /y "%new%" "%target%" 2>nul',
-    'if exist "%new%" (',
-    '    timeout /t 1 /nobreak >nul',
-    '    goto retry',
-    ')',
-    '',
-    'rem Launch the updated app',
-    'start "" "%target%"',
-    '',
-    'rem Self-delete this script',
-    'del "%~f0"',
-  ].join('\r\n');
+  // Escape single-quotes for PowerShell string literals
+  function esc(s) { return String(s).replace(/'/g, "''"); }
+
+  // Build the script as an array of lines, joined with \r\n.
+  // This avoids ALL escaping issues with JS template literals vs PS backticks.
+  var lines = [];
+
+  lines.push('# Auto-updater script for Polarization Lab');
+  lines.push('$ErrorActionPreference = "Stop"');
+  lines.push('');
+  lines.push("$newFile   = '" + esc(newExePath) + "'");
+  lines.push("$targetFile = '" + esc(targetExe) + "'");
+  lines.push("$targetDir  = '" + esc(targetDir) + "'");
+  lines.push('');
+  lines.push('# Wait for old app to fully exit (portable wrapper needs a few seconds)');
+  lines.push('$retries = 0');
+  lines.push('$maxRetries = 60');
+  lines.push('');
+  lines.push('while ($retries -lt $maxRetries) {');
+  lines.push('    try {');
+  lines.push('        if (Test-Path $newFile) {');
+  lines.push('            Move-Item -Force -Path $newFile -Destination $targetFile -ErrorAction Stop');
+  lines.push('            Write-Host "Replaced successfully after $retries retries"');
+  lines.push('            Start-Sleep -Milliseconds 300');
+  lines.push('            Start-Process -FilePath $targetFile');
+  lines.push('            exit 0');
+  lines.push('        } else {');
+  lines.push('            Write-Host "Downloaded file missing"');
+  lines.push('            exit 1');
+  lines.push('        }');
+  lines.push('    } catch {');
+  lines.push('        $retries++');
+  lines.push('        Start-Sleep -Milliseconds 500');
+  lines.push('    }');
+  lines.push('}');
+  lines.push('');
+  lines.push('# If we get here, something went wrong — launch from temp as fallback');
+  lines.push('if (Test-Path $newFile) {');
+  lines.push('    Start-Process -FilePath $newFile');
+  lines.push('}');
+  lines.push('');
+  lines.push('# Self-delete');
+  lines.push('Start-Sleep -Seconds 2');
+  lines.push('Remove-Item -Force -LiteralPath $PSCommandPath -ErrorAction SilentlyContinue');
+
+  return lines.join('\r\n');
 }
 
 // ── Auto-update ─────────────────────────────────────────────
 async function checkForUpdates() {
   var localVersion = app.getVersion();
-
   var release;
   try {
     release = await httpsGetJSON(
@@ -258,76 +243,80 @@ async function checkForUpdates() {
 
   var tag = release.tag_name || '';
   var remoteVersion = tag.startsWith('v') ? tag.slice(1) : tag;
-  if (!remoteVersion) return;
-  if (semverCompare(remoteVersion, localVersion) <= 0) return;
+  if (!remoteVersion || semverCompare(remoteVersion, localVersion) <= 0) return;
 
   var exeAsset = release.assets.find(function (a) { return a.name.endsWith('.exe'); });
   if (!exeAsset) return;
 
   var notes = (release.body || '').replace(/\r\n/g, '\n').slice(0, 600);
 
-  var response = await dialog.showMessageBox(win, {
-    type: 'info',
-    title: '发现新版本',
-    message: '新版本 v' + remoteVersion + ' 可用（当前 v' + localVersion + '）',
+  var resp = await dialog.showMessageBox(win, {
+    type: 'info', title: '发现新版本',
+    message: 'v' + remoteVersion + ' (current: v' + localVersion + ')',
     detail: notes || undefined,
     buttons: ['立即更新', '稍后提醒', '查看详情'],
-    defaultId: 0,
-    cancelId: 1,
+    defaultId: 0, cancelId: 1,
   });
-
-  if (response.response === 2) {
+  if (resp.response === 2) {
     shell.openExternal(release.html_url || 'https://github.com/' + REPO_OWNER + '/' + REPO_NAME + '/releases/latest');
     return;
   }
-  if (response.response === 1) return;
+  if (resp.response === 1) return;
 
-  // Download & install
   if (!app.isPackaged) {
     dialog.showMessageBox(win, {
-      type: 'info', title: '发现新版本',
-      message: '新版本 v' + remoteVersion + ' 可用',
-      detail: '开发模式下无法自动安装，请前往 GitHub 手动下载。',
-      buttons: ['前往下载', '稍后'],
+      type: 'info', title: 'Dev mode',
+      message: 'v' + remoteVersion + ' available',
+      detail: 'Not packaged — open GitHub to download.',
+      buttons: ['Open GitHub', 'Later'],
     }).then(function (r) {
       if (r.response === 0) shell.openExternal('https://github.com/' + REPO_OWNER + '/' + REPO_NAME + '/releases/latest');
     });
     return;
   }
 
+  // ── Download ──
   var progWin = createProgressWin(remoteVersion);
   var tmpDir = app.getPath('temp');
-  var newExePath = path.join(tmpDir, 'PolarizationLab-' + remoteVersion + '-update.exe');
-
+  var newExePath = path.join(tmpDir, 'PolarizationLab-v' + remoteVersion + '-update.exe');
   try {
     await downloadFile(exeAsset.browser_download_url, newExePath, function (p) { progWin.update(p); });
   } catch (err) {
     progWin.close();
-    dialog.showErrorBox('下载失败', '无法下载更新，请稍后重试。\n\n' + err.message);
+    dialog.showErrorBox('下载失败', err.message);
     return;
   }
   progWin.close();
 
+  // ── Confirm ──
   var result = await dialog.showMessageBox(win, {
     type: 'info', title: '下载完成',
-    message: 'v' + remoteVersion + ' 已下载完成',
-    detail: '点击「立即重启」关闭程序并自动安装更新。',
+    message: 'v' + remoteVersion + ' ready',
+    detail: 'Restart now to install the update.',
     buttons: ['立即重启', '稍后'],
     defaultId: 0, cancelId: 1,
   });
   if (result.response !== 0) return;
 
+  // ── Write updater script ──
   var targetExe = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
-  var scriptPath = path.join(tmpDir, 'polarization-update.cmd');
-  fs.writeFileSync(scriptPath, buildUpdateScript(newExePath, targetExe), 'ascii');
+  var targetDir = path.dirname(targetExe);
+  var scriptPath = path.join(tmpDir, 'polarization-update.ps1');
+  var scriptContent = buildUpdateScript(newExePath, targetExe, targetDir);
+  fs.writeFileSync(scriptPath, scriptContent, 'utf8');
 
-  spawn('cmd.exe', [
-    '/c', 'start', '/min', '""', scriptPath,
-  ], {
-    detached: true, stdio: 'ignore', windowsHide: true,
-  }).unref();
+  // ── Spawn updater script THEN quit ──
+  // The PowerShell script waits/retries until the file is unlocked
+  var child = spawn('powershell.exe', [
+    '-ExecutionPolicy', 'Bypass',
+    '-NoProfile',
+    '-WindowStyle', 'Hidden',
+    '-File', scriptPath,
+  ], { detached: true, stdio: 'ignore', windowsHide: true });
+  child.unref();
 
-  setTimeout(function () { app.quit(); }, 500);
+  // Give the child process a moment to start, then quit
+  setTimeout(function () { app.quit(); }, 1000);
 }
 
 // ── Lifecycle ───────────────────────────────────────────────
@@ -341,7 +330,6 @@ app.on('window-all-closed', function () {
   if (server) server.close();
   if (process.platform !== 'darwin') app.quit();
 });
-
 app.on('activate', function () {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
